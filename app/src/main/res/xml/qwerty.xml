@@ -23,6 +23,14 @@
     android:keyHeight="@dimen/key_height"
     >
 
+    <Row android:rowEdgeFlags="top">
+        <Key android:codes="99990" android:keyLabel="1"/>
+        <Key android:codes="99991" android:keyLabel="2"/>
+        <Key android:codes="99992" android:keyLabel="3"/>
+        <Key android:codes="99993" android:keyLabel="4" />
+        <Key android:codes="99994" android:keyLabel="5"/>
+    </Row>
+
     <Row>
         <Key android:codes="113" android:keyLabel="q"/>
         <Key android:codes="119" android:keyLabel="w"/>

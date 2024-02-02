@@ -31,6 +31,9 @@ import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class SoftKeyboard extends InputMethodService
         implements KeyboardView.OnKeyboardActionListener {
 
@@ -47,6 +50,8 @@ public class SoftKeyboard extends InputMethodService
     private LatinKeyboard mQwertyKeyboard;
     
     private LatinKeyboard mCurKeyboard;
+
+    private StringBuilder compositionText = new StringBuilder();
 
     @Override public void onCreate() {
         super.onCreate();
@@ -128,6 +133,7 @@ public class SoftKeyboard extends InputMethodService
 
     @Override public void onFinishInput() {
         super.onFinishInput();
+        compositionText = new StringBuilder();
         
         mCurKeyboard = mQwertyKeyboard;
         if (mInputView != null) {
@@ -162,6 +168,7 @@ public class SoftKeyboard extends InputMethodService
 
     public void onKey(int primaryCode, int[] keyCodes) {
         if (primaryCode == Keyboard.KEYCODE_DONE) {
+            commitInput();
             keyDownUp(KeyEvent.KEYCODE_ENTER);
         } else if (primaryCode == Keyboard.KEYCODE_DELETE) {
             handleBackspace();
@@ -217,8 +224,25 @@ public class SoftKeyboard extends InputMethodService
                 primaryCode = Character.toUpperCase(primaryCode);
             }
         }
-        getCurrentInputConnection().commitText(String.valueOf((char) primaryCode), 1);
+        char ch = (char) primaryCode;
+        if (primaryCode >= 99990 && primaryCode <= 99999) { // persevered as select key code for candidates.
+            int candidateIndex = primaryCode - 99990;
+            char c = (char) (candidateIndex + 49); // test to output 1~9, 1's charCode is 49.
+            getCurrentInputConnection().commitText(String.valueOf(c), 1);
+            // todo: commit the candidate in pressed index;
+            // getCurrentInputConnection().commitText(candidate, candidate.length);
+        } else {
+            compositionText.append(ch);
+            if (!Character.isLetter(ch)) { // If not char in [a~z] or [A~Z], commit whole composition text.
+                commitInput();
+            }
+        }
         updateShiftKeyState(getCurrentInputEditorInfo());
+    }
+
+    private void commitInput() {
+        getCurrentInputConnection().commitText(compositionText.toString(), compositionText.length());
+        compositionText = new StringBuilder();
     }
 
     private IBinder getToken() {
