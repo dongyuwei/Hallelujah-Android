@@ -1,5 +1,8 @@
-# Hallelujah-Android, 哈利路亚输入法Android版
-基于 [Tiny Keyboard](https://github.com/rkkr/tiny-keyboard) 移植 [hallelujahIM](https://github.com/dongyuwei/hallelujahIM) 到Android平台。
+# Hallelujah-Android, 哈利路亚输入法 Android 版
+
+基于 [Tiny Keyboard](https://github.com/rkkr/tiny-keyboard) 移植 [hallelujahIM](https://github.com/dongyuwei/hallelujahIM) 到 Android 平台。
+
+<img src="images/him.jpg" width="500"/>
 
 <hr>
 以下是 [Tiny Keyboard](https://github.com/rkkr/tiny-keyboard) 原始项目文档
@@ -28,6 +31,7 @@ All that is contained in application source is key layouts and special handling 
 The goal of this keyboard will stay a minimal size. Any functionality that doesn't increase the size drastically can be included. Check the Issues tab to see what is planned or request functionality.
 
 Keyboard logic and view code may need to move into the application due to:
+
 - Being deprecated in Android 10
 - Implementations may differ across Android versions in a breaking way
 - Implementations may differ across vendors in a breaking way
@@ -39,7 +43,7 @@ Keyboard logic and view code may need to move into the application due to:
 [<img src="https://play.google.com/intl/en_us/badges/images/generic/en-play-badge.png"
       alt="Get it on Google Play"
       height="80">](https://play.google.com/store/apps/details?id=rkr.tinykeyboard.inputmethod)
-      
+
 ## Credits
 
 Based on https://android.googlesource.com/platform/development/+/master/samples/SoftKeyboard
