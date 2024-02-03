@@ -1,3 +1,10 @@
+# Hallelujah-Android, 哈利路亚输入法Android版
+基于 [Tiny Keyboard](https://github.com/rkkr/tiny-keyboard) 移植 [hallelujahIM](https://github.com/dongyuwei/hallelujahIM) 到Android平台。
+
+<hr>
+以下是 [Tiny Keyboard](https://github.com/rkkr/tiny-keyboard) 原始项目文档
+<hr>
+
 # Tiny Keyboard
 
 <img src="images/keyboard.png" width="500"/>
