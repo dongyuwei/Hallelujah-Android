@@ -24,11 +24,12 @@
     >
 
     <Row android:rowEdgeFlags="top">
-        <Key android:codes="99990" android:keyLabel="1"/>
-        <Key android:codes="99991" android:keyLabel="2"/>
-        <Key android:codes="99992" android:keyLabel="3"/>
-        <Key android:codes="99993" android:keyLabel="4" />
-        <Key android:codes="99994" android:keyLabel="5"/>
+        <Key android:codes="99990" android:keyLabel="" android:keyWidth="15%p"/>
+        <Key android:codes="99991" android:keyLabel="" android:keyWidth="17%p"/>
+        <Key android:codes="99992" android:keyLabel="" android:keyWidth="17%p"/>
+        <Key android:codes="99993" android:keyLabel="" android:keyWidth="17%p"/>
+        <Key android:codes="99994" android:keyLabel="" android:keyWidth="17%p"/>
+        <Key android:codes="99995" android:keyLabel="" android:keyWidth="17%p"/>
     </Row>
 
     <Row>

@@ -30,6 +30,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
+import android.inputmethodservice.Keyboard.Key;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -235,6 +236,28 @@ public class SoftKeyboard extends InputMethodService
     private void handleBackspace() {
         keyDownUp(KeyEvent.KEYCODE_DEL);
         updateShiftKeyState(getCurrentInputEditorInfo());
+
+        if (compositionText.length() >= 1) {
+            compositionText.deleteCharAt(compositionText.length() - 1);
+        }
+        updateCandidateView();
+    }
+
+    private void updateCandidateView() {
+        List<String> candidateList = getCandidates();
+        List<Key> keys = mQwertyKeyboard.getKeys();
+        for (Key key : keys) {
+            if (key.codes != null && key.codes.length > 0 && key.codes[0] >= 99990 && key.codes[0] <= 99999) {
+                int index = key.codes[0] - 99990;
+                String candidate = "";
+                if (index >= 0 && index < candidateList.size()) {
+                    candidate = candidateList.get(index);
+                }
+                key.label = candidate;
+            }
+        }
+        // Redraw the keyboard with updated labels
+        mInputView.invalidateAllKeys();
     }
 
     private void handleShift() {
@@ -271,7 +294,7 @@ public class SoftKeyboard extends InputMethodService
         } else {
             compositionText.append(ch);
             if (Character.isLetter(ch)) {
-                // todo: update the candidates button's label(1~5 for now).
+                updateCandidateView();
             } else { // If char not in [a~z] or [A~Z], commit whole composition text.
                 commitInput();
             }
@@ -280,6 +303,9 @@ public class SoftKeyboard extends InputMethodService
     }
 
     private List<String> getCandidates() {
+        if (compositionText.length() == 0) {
+            return new ArrayList<>();
+        }
         String prefix = compositionText.toString();
         Map<String, Double> prefixMap = trie.prefixMap(prefix);
         List<Map.Entry<String, Double>> matchingWords = new ArrayList<>(prefixMap.entrySet());
@@ -287,6 +313,7 @@ public class SoftKeyboard extends InputMethodService
             matchingWords.sort(Map.Entry.comparingByValue(Collections.reverseOrder())); // Sort by frequency, highest first
         }
         List<String> sortedWords = new ArrayList<>();
+        sortedWords.add(prefix);
         for (Map.Entry<String, Double> entry : matchingWords) {
             sortedWords.add(entry.getKey());
         }
@@ -303,6 +330,7 @@ public class SoftKeyboard extends InputMethodService
     private void reset() {
         compositionText = new StringBuilder();
         candidates = new ArrayList<>();
+        updateCandidateView();
     }
     private void commitInput() {
         getCurrentInputConnection().commitText(compositionText.toString(), compositionText.length());
