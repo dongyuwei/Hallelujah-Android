@@ -31,8 +31,18 @@ import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+
+import org.apache.commons.collections4.trie.PatriciaTrie;
+
+import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class SoftKeyboard extends InputMethodService
         implements KeyboardView.OnKeyboardActionListener {
@@ -51,11 +61,41 @@ public class SoftKeyboard extends InputMethodService
     
     private LatinKeyboard mCurKeyboard;
 
+    private ExecutorService executorService;
     private StringBuilder compositionText = new StringBuilder();
+    PatriciaTrie<Double> trie;
+    List<String> candidates = new ArrayList<>();
 
     @Override public void onCreate() {
         super.onCreate();
         mInputMethodManager = (InputMethodManager)getSystemService(INPUT_METHOD_SERVICE);
+
+        if (trie == null) {
+            executorService = Executors.newSingleThreadExecutor();
+            loadDictionaryAsync();
+        }
+    }
+
+    private void loadDictionaryAsync() {
+        executorService.execute(() -> {
+            String jsonString = DictUtil.getJsonFromAssets(getApplicationContext(), "google_227800_words.json");
+            Gson gson = new Gson();
+            Type mapType = new TypeToken<Map<String, Double>>(){}.getType();
+            Map<String, Double> map = gson.fromJson(jsonString, mapType);
+
+            trie = new PatriciaTrie<>();
+            for (Map.Entry<String, Double> entry : map.entrySet()) {
+                trie.put(entry.getKey(), entry.getValue());
+            }
+        });
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (executorService != null) {
+            executorService.shutdownNow();
+        }
     }
 
     Context getDisplayContext() {
@@ -227,22 +267,46 @@ public class SoftKeyboard extends InputMethodService
         char ch = (char) primaryCode;
         if (primaryCode >= 99990 && primaryCode <= 99999) { // persevered as select key code for candidates.
             int candidateIndex = primaryCode - 99990;
-            char c = (char) (candidateIndex + 49); // test to output 1~9, 1's charCode is 49.
-            getCurrentInputConnection().commitText(String.valueOf(c), 1);
-            // todo: commit the candidate in pressed index;
-            // getCurrentInputConnection().commitText(candidate, candidate.length);
+            commitCandidateText(candidateIndex);
         } else {
             compositionText.append(ch);
-            if (!Character.isLetter(ch)) { // If not char in [a~z] or [A~Z], commit whole composition text.
+            if (Character.isLetter(ch)) {
+                // todo: update the candidates button's label(1~5 for now).
+            } else { // If char not in [a~z] or [A~Z], commit whole composition text.
                 commitInput();
             }
         }
         updateShiftKeyState(getCurrentInputEditorInfo());
     }
 
+    private List<String> getCandidates() {
+        String prefix = compositionText.toString();
+        Map<String, Double> prefixMap = trie.prefixMap(prefix);
+        List<Map.Entry<String, Double>> matchingWords = new ArrayList<>(prefixMap.entrySet());
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            matchingWords.sort(Map.Entry.comparingByValue(Collections.reverseOrder())); // Sort by frequency, highest first
+        }
+        List<String> sortedWords = new ArrayList<>();
+        for (Map.Entry<String, Double> entry : matchingWords) {
+            sortedWords.add(entry.getKey());
+        }
+        return sortedWords;
+    }
+
+    private void commitCandidateText(int candidateIndex) {
+        candidates = getCandidates();
+        String candidate = candidates.get(candidateIndex);
+        getCurrentInputConnection().commitText(candidate, candidate.length());
+        reset();
+    }
+
+    private void reset() {
+        compositionText = new StringBuilder();
+        candidates = new ArrayList<>();
+    }
     private void commitInput() {
         getCurrentInputConnection().commitText(compositionText.toString(), compositionText.length());
-        compositionText = new StringBuilder();
+        reset();
     }
 
     private IBinder getToken() {
