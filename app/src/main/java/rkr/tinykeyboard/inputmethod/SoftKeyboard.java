@@ -332,13 +332,6 @@ public class SoftKeyboard extends InputMethodService
         return sortedWords;
     }
 
-//    public void commitCandidateText(int candidateIndex) {
-//        candidates = getCandidates();
-//        String candidate = candidates.get(candidateIndex);
-//        getCurrentInputConnection().commitText(candidate, candidate.length());
-//        reset();
-//    }
-
     public void reset() {
         compositionText = new StringBuilder();
         candidates = new ArrayList<>();
