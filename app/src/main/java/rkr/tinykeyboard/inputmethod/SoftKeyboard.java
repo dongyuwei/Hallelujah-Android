@@ -273,7 +273,7 @@ public class SoftKeyboard extends InputMethodService
 
     private void updateCandidateViewAndComposingText() {
         List<String> candidateList = getCandidates();
-        List<String> candidates = candidateList.subList(0, Math.min(candidateList.size(), 12));
+        List<String> candidates = candidateList.subList(0, Math.min(candidateList.size(), 20));
         updateCandidatesList(getCandidatesWithoutDuplicates(candidates));
 
         getCurrentInputConnection().setComposingText(compositionText, compositionText.length());
