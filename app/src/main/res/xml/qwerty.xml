@@ -22,16 +22,6 @@
     android:keyWidth="@dimen/key_width"
     android:keyHeight="@dimen/key_height"
     >
-
-    <Row android:rowEdgeFlags="top">
-        <Key android:codes="99990" android:keyLabel="" android:keyWidth="15%p"/>
-        <Key android:codes="99991" android:keyLabel="" android:keyWidth="17%p"/>
-        <Key android:codes="99992" android:keyLabel="" android:keyWidth="17%p"/>
-        <Key android:codes="99993" android:keyLabel="" android:keyWidth="17%p"/>
-        <Key android:codes="99994" android:keyLabel="" android:keyWidth="17%p"/>
-        <Key android:codes="99995" android:keyLabel="" android:keyWidth="17%p"/>
-    </Row>
-
     <Row>
         <Key android:codes="113" android:keyLabel="q"/>
         <Key android:codes="119" android:keyLabel="w"/>

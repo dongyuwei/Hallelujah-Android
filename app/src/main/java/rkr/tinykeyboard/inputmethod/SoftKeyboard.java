@@ -25,12 +25,15 @@ import android.os.Build;
 import android.os.IBinder;
 import android.text.InputType;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
-import android.inputmethodservice.Keyboard.Key;
+
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -46,12 +49,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class SoftKeyboard extends InputMethodService
-        implements KeyboardView.OnKeyboardActionListener {
+        implements KeyboardView.OnKeyboardActionListener  {
 
     private InputMethodManager mInputMethodManager;
 
     private KeyboardView mInputView;
-
+    private RecyclerView candidatesRecyclerView;
     private int mLastDisplayWidth;
     private boolean mCapsLock;
     private long mLastShiftTime;
@@ -97,6 +100,29 @@ public class SoftKeyboard extends InputMethodService
         if (executorService != null) {
             executorService.shutdownNow();
         }
+    }
+
+    @Override
+    public View onCreateCandidatesView() {
+        LayoutInflater inflater = getLayoutInflater();
+        View candidatesView = inflater.inflate(R.layout.candidates_view_layout, null);
+
+        candidatesRecyclerView = candidatesView.findViewById(R.id.candidatesRecyclerView);
+        GridLayoutManager layoutManager = new GridLayoutManager(this, numberOfColumns());
+        candidatesRecyclerView.setLayoutManager(layoutManager);
+
+        return candidatesView;
+    }
+
+    private void updateCandidatesList(List<String> candidates) {
+        setCandidatesViewShown(!candidates.isEmpty());
+        CandidateSelectionHandler selectionHandler = new CandidateSelectionHandler(this);
+        CandidateAdapter adapter = new CandidateAdapter(candidates, selectionHandler);
+        candidatesRecyclerView.setAdapter(adapter);
+    }
+
+    private int numberOfColumns() {
+        return 4;
     }
 
     Context getDisplayContext() {
@@ -245,19 +271,10 @@ public class SoftKeyboard extends InputMethodService
 
     private void updateCandidateView() {
         List<String> candidateList = getCandidates();
-        List<Key> keys = mQwertyKeyboard.getKeys();
-        for (Key key : keys) {
-            if (key.codes != null && key.codes.length > 0 && key.codes[0] >= 99990 && key.codes[0] <= 99999) {
-                int index = key.codes[0] - 99990;
-                String candidate = "";
-                if (index >= 0 && index < candidateList.size()) {
-                    candidate = candidateList.get(index);
-                }
-                key.label = candidate;
-            }
-        }
+        updateCandidatesList(candidateList.subList(0, Math.min(candidateList.size(), 12)));
+
         // Redraw the keyboard with updated labels
-        mInputView.invalidateAllKeys();
+//        mInputView.invalidateAllKeys();
     }
 
     private void handleShift() {
@@ -288,16 +305,11 @@ public class SoftKeyboard extends InputMethodService
             }
         }
         char ch = (char) primaryCode;
-        if (primaryCode >= 99990 && primaryCode <= 99999) { // persevered as select key code for candidates.
-            int candidateIndex = primaryCode - 99990;
-            commitCandidateText(candidateIndex);
-        } else {
-            compositionText.append(ch);
-            if (Character.isLetter(ch)) {
-                updateCandidateView();
-            } else { // If char not in [a~z] or [A~Z], commit whole composition text.
-                commitInput();
-            }
+        compositionText.append(ch);
+        if (Character.isLetter(ch)) {
+            updateCandidateView();
+        } else { // If char not in [a~z] or [A~Z], commit whole composition text.
+            commitInput();
         }
         updateShiftKeyState(getCurrentInputEditorInfo());
     }
@@ -320,14 +332,14 @@ public class SoftKeyboard extends InputMethodService
         return sortedWords;
     }
 
-    private void commitCandidateText(int candidateIndex) {
-        candidates = getCandidates();
-        String candidate = candidates.get(candidateIndex);
-        getCurrentInputConnection().commitText(candidate, candidate.length());
-        reset();
-    }
+//    public void commitCandidateText(int candidateIndex) {
+//        candidates = getCandidates();
+//        String candidate = candidates.get(candidateIndex);
+//        getCurrentInputConnection().commitText(candidate, candidate.length());
+//        reset();
+//    }
 
-    private void reset() {
+    public void reset() {
         compositionText = new StringBuilder();
         candidates = new ArrayList<>();
         updateCandidateView();
