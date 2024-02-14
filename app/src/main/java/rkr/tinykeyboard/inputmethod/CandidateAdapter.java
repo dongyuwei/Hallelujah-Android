@@ -22,7 +22,7 @@ public class CandidateAdapter extends RecyclerView.Adapter<CandidateAdapter.View
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View itemView = LayoutInflater.from(parent.getContext()).inflate(android.R.layout.simple_list_item_1, parent, false);
+        View itemView = LayoutInflater.from(parent.getContext()).inflate(R.layout.candidate_item_layout, parent, false);
         return new ViewHolder(itemView);
     }
 
