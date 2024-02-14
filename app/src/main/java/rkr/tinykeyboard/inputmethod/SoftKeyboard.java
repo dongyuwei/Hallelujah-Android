@@ -266,15 +266,14 @@ public class SoftKeyboard extends InputMethodService
         if (compositionText.length() >= 1) {
             compositionText.deleteCharAt(compositionText.length() - 1);
         }
-        updateCandidateView();
+        updateCandidateViewAndComposingText();
     }
 
-    private void updateCandidateView() {
+    private void updateCandidateViewAndComposingText() {
         List<String> candidateList = getCandidates();
         updateCandidatesList(candidateList.subList(0, Math.min(candidateList.size(), 12)));
 
-        // Redraw the keyboard with updated labels
-//        mInputView.invalidateAllKeys();
+        getCurrentInputConnection().setComposingText(compositionText, compositionText.length());
     }
 
     private void handleShift() {
@@ -307,7 +306,7 @@ public class SoftKeyboard extends InputMethodService
         char ch = (char) primaryCode;
         compositionText.append(ch);
         if (Character.isLetter(ch)) {
-            updateCandidateView();
+            updateCandidateViewAndComposingText();
         } else { // If char not in [a~z] or [A~Z], commit whole composition text.
             commitInput();
         }
@@ -335,7 +334,7 @@ public class SoftKeyboard extends InputMethodService
     public void reset() {
         compositionText = new StringBuilder();
         candidates = new ArrayList<>();
-        updateCandidateView();
+        updateCandidateViewAndComposingText();
     }
     private void commitInput() {
         getCurrentInputConnection().commitText(compositionText.toString(), compositionText.length());
