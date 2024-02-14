@@ -43,8 +43,10 @@ import org.apache.commons.collections4.trie.PatriciaTrie;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -271,9 +273,15 @@ public class SoftKeyboard extends InputMethodService
 
     private void updateCandidateViewAndComposingText() {
         List<String> candidateList = getCandidates();
-        updateCandidatesList(candidateList.subList(0, Math.min(candidateList.size(), 12)));
+        List<String> candidates = candidateList.subList(0, Math.min(candidateList.size(), 12));
+        updateCandidatesList(getCandidatesWithoutDuplicates(candidates));
 
         getCurrentInputConnection().setComposingText(compositionText, compositionText.length());
+    }
+
+    private ArrayList<String> getCandidatesWithoutDuplicates(List<String> candidates) {
+        Set<String> setWithoutDuplicates = new LinkedHashSet<>(candidates);
+        return new ArrayList<>(setWithoutDuplicates);
     }
 
     private void handleShift() {
