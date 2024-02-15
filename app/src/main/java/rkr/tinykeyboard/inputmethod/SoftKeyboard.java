@@ -43,6 +43,7 @@ import org.apache.commons.collections4.trie.PatriciaTrie;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -69,8 +70,9 @@ public class SoftKeyboard extends InputMethodService
 
     private ExecutorService executorService;
     private StringBuilder compositionText = new StringBuilder();
-    PatriciaTrie<Double> trie;
-    List<String> candidates = new ArrayList<>();
+    private PatriciaTrie<Double> trie;
+    private List<String> candidates = new ArrayList<>();
+    private Map<String, List<String>> pinyinMap = new HashMap<>();
 
     @Override public void onCreate() {
         super.onCreate();
@@ -84,8 +86,8 @@ public class SoftKeyboard extends InputMethodService
 
     private void loadDictionaryAsync() {
         executorService.execute(() -> {
-            String jsonString = DictUtil.getJsonFromAssets(getApplicationContext(), "google_227800_words.json");
             Gson gson = new Gson();
+            String jsonString = DictUtil.getJsonFromAssets(getApplicationContext(), "google_227800_words.json");
             Type mapType = new TypeToken<Map<String, Double>>(){}.getType();
             Map<String, Double> map = gson.fromJson(jsonString, mapType);
 
@@ -93,6 +95,11 @@ public class SoftKeyboard extends InputMethodService
             for (Map.Entry<String, Double> entry : map.entrySet()) {
                 trie.put(entry.getKey(), entry.getValue());
             }
+
+
+            String pinyinJson = DictUtil.getJsonFromAssets(getApplicationContext(), "cedict.json");
+            Type pinyinType = new TypeToken<Map<String, List<String>>>(){}.getType();
+            pinyinMap = gson.fromJson(pinyinJson, pinyinType);
         });
     }
 
@@ -331,10 +338,17 @@ public class SoftKeyboard extends InputMethodService
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             matchingWords.sort(Map.Entry.comparingByValue(Collections.reverseOrder())); // Sort by frequency, highest first
         }
+
         List<String> sortedWords = new ArrayList<>();
         sortedWords.add(prefix);
-        for (Map.Entry<String, Double> entry : matchingWords) {
-            sortedWords.add(entry.getKey());
+        if (!matchingWords.isEmpty()) {
+            for (Map.Entry<String, Double> entry : matchingWords) {
+                sortedWords.add(entry.getKey());
+            }
+        } else {
+            if (pinyinMap.containsKey(prefix)) {
+                sortedWords.addAll(pinyinMap.get(prefix));
+            }
         }
         return sortedWords;
     }
