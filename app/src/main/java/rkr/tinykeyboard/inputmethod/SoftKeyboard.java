@@ -51,8 +51,11 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import io.gitlab.rxp90.jsymspell.SymSpell;
+import io.gitlab.rxp90.jsymspell.SymSpellBuilder;
+
 public class SoftKeyboard extends InputMethodService
-        implements KeyboardView.OnKeyboardActionListener  {
+        implements KeyboardView.OnKeyboardActionListener {
 
     private InputMethodManager mInputMethodManager;
 
@@ -61,22 +64,24 @@ public class SoftKeyboard extends InputMethodService
     private int mLastDisplayWidth;
     private boolean mCapsLock;
     private long mLastShiftTime;
-    
+
     private LatinKeyboard mSymbolsKeyboard;
     private LatinKeyboard mSymbolsShiftedKeyboard;
     private LatinKeyboard mQwertyKeyboard;
-    
+
     private LatinKeyboard mCurKeyboard;
 
     private ExecutorService executorService;
     private StringBuilder compositionText = new StringBuilder();
-    private PatriciaTrie<Double> trie;
+    private PatriciaTrie<Long> trie;
     private List<String> candidates = new ArrayList<>();
     private Map<String, List<String>> pinyinMap = new HashMap<>();
+    private SymSpell symSpell;
 
-    @Override public void onCreate() {
+    @Override
+    public void onCreate() {
         super.onCreate();
-        mInputMethodManager = (InputMethodManager)getSystemService(INPUT_METHOD_SERVICE);
+        mInputMethodManager = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
 
         if (trie == null) {
             executorService = Executors.newSingleThreadExecutor();
@@ -87,20 +92,37 @@ public class SoftKeyboard extends InputMethodService
     private void loadDictionaryAsync() {
         executorService.execute(() -> {
             Gson gson = new Gson();
-            String jsonString = DictUtil.getJsonFromAssets(getApplicationContext(), "google_227800_words.json");
-            Type mapType = new TypeToken<Map<String, Double>>(){}.getType();
-            Map<String, Double> map = gson.fromJson(jsonString, mapType);
+            String jsonString = DictUtil.getFileContentFromAssets(getApplicationContext(), "google_227800_words.json");
+            Type mapType = new TypeToken<Map<String, Long>>() {
+            }.getType();
+            Map<String, Long> map = gson.fromJson(jsonString, mapType);
 
-            trie = new PatriciaTrie<>();
-            for (Map.Entry<String, Double> entry : map.entrySet()) {
-                trie.put(entry.getKey(), entry.getValue());
-            }
+            buildTrie(map);
+            buildSymSpell(map);
 
-
-            String pinyinJson = DictUtil.getJsonFromAssets(getApplicationContext(), "cedict.json");
-            Type pinyinType = new TypeToken<Map<String, List<String>>>(){}.getType();
-            pinyinMap = gson.fromJson(pinyinJson, pinyinType);
+            loadPinyinMap();
         });
+    }
+
+    private void buildTrie(Map<String, Long> map) {
+        trie = new PatriciaTrie<>();
+        for (Map.Entry<String, Long> entry : map.entrySet()) {
+            trie.put(entry.getKey(), entry.getValue());
+        }
+    }
+
+    private void buildSymSpell(Map<String, Long> unigrams) {
+        symSpell = new SymSpellBuilder().setUnigramLexicon(unigrams)
+                .setMaxDictionaryEditDistance(2)
+                .createSymSpell();
+    }
+
+    private void loadPinyinMap() {
+        Gson gson = new Gson();
+        String pinyinJson = DictUtil.getFileContentFromAssets(getApplicationContext(), "cedict.json");
+        Type pinyinType = new TypeToken<Map<String, List<String>>>() {
+        }.getType();
+        pinyinMap = gson.fromJson(pinyinJson, pinyinType);
     }
 
     @Override
@@ -149,7 +171,8 @@ public class SoftKeyboard extends InputMethodService
         return createDisplayContext(wm.getDefaultDisplay());
     }
 
-    @Override public void onInitializeInterface() {
+    @Override
+    public void onInitializeInterface() {
         final Context displayContext = getDisplayContext();
 
         if (mQwertyKeyboard != null) {
@@ -165,7 +188,8 @@ public class SoftKeyboard extends InputMethodService
         mSymbolsShiftedKeyboard = new LatinKeyboard(displayContext, R.xml.symbols_shift);
     }
 
-    @Override public View onCreateInputView() {
+    @Override
+    public View onCreateInputView() {
         mInputView = (KeyboardView) getLayoutInflater().inflate(R.layout.input, null);
         mInputView.setOnKeyboardActionListener(this);
         mInputView.setPreviewEnabled(false);
@@ -181,9 +205,10 @@ public class SoftKeyboard extends InputMethodService
         mInputView.setKeyboard(nextKeyboard);
     }
 
-    @Override public void onStartInput(EditorInfo attribute, boolean restarting) {
+    @Override
+    public void onStartInput(EditorInfo attribute, boolean restarting) {
         super.onStartInput(attribute, restarting);
-        
+
         // We are now going to initialize our state based on the type of
         // text being edited.
         switch (attribute.inputType & InputType.TYPE_MASK_CLASS) {
@@ -194,30 +219,32 @@ public class SoftKeyboard extends InputMethodService
                 // no extra features.
                 mCurKeyboard = mSymbolsKeyboard;
                 break;
-                
+
             default:
                 // For all unknown input types, default to the alphabetic
                 // keyboard with no special features.
                 mCurKeyboard = mQwertyKeyboard;
                 updateShiftKeyState(attribute);
         }
-        
+
         // Update the label on the enter key, depending on what the application
         // says it will do.
         mCurKeyboard.setImeOptions(getResources(), attribute.imeOptions);
     }
 
-    @Override public void onFinishInput() {
+    @Override
+    public void onFinishInput() {
         super.onFinishInput();
         compositionText = new StringBuilder();
-        
+
         mCurKeyboard = mQwertyKeyboard;
         if (mInputView != null) {
             mInputView.closing();
         }
     }
-    
-    @Override public void onStartInputView(EditorInfo attribute, boolean restarting) {
+
+    @Override
+    public void onStartInputView(EditorInfo attribute, boolean restarting) {
         super.onStartInputView(attribute, restarting);
         // Apply the selected keyboard to the input view.
         setLatinKeyboard(mCurKeyboard);
@@ -267,7 +294,7 @@ public class SoftKeyboard extends InputMethodService
 
     public void onText(CharSequence text) {
     }
-    
+
     private void handleBackspace() {
         keyDownUp(KeyEvent.KEYCODE_DEL);
         updateShiftKeyState(getCurrentInputEditorInfo());
@@ -295,7 +322,7 @@ public class SoftKeyboard extends InputMethodService
         if (mInputView == null) {
             return;
         }
-        
+
         Keyboard currentKeyboard = mInputView.getKeyboard();
         if (mQwertyKeyboard == currentKeyboard) {
             // Alphabet keyboard
@@ -311,7 +338,7 @@ public class SoftKeyboard extends InputMethodService
             mSymbolsKeyboard.setShifted(false);
         }
     }
-    
+
     private void handleCharacter(int primaryCode) {
         if (isInputViewShown()) {
             if (mInputView.isShifted()) {
@@ -333,8 +360,8 @@ public class SoftKeyboard extends InputMethodService
             return new ArrayList<>();
         }
         String prefix = compositionText.toString();
-        Map<String, Double> prefixMap = trie.prefixMap(prefix);
-        List<Map.Entry<String, Double>> matchingWords = new ArrayList<>(prefixMap.entrySet());
+        Map<String, Long> prefixMap = trie.prefixMap(prefix);
+        List<Map.Entry<String, Long>> matchingWords = new ArrayList<>(prefixMap.entrySet());
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             matchingWords.sort(Map.Entry.comparingByValue(Collections.reverseOrder())); // Sort by frequency, highest first
         }
@@ -342,7 +369,7 @@ public class SoftKeyboard extends InputMethodService
         List<String> sortedWords = new ArrayList<>();
         sortedWords.add(prefix);
         if (!matchingWords.isEmpty()) {
-            for (Map.Entry<String, Double> entry : matchingWords) {
+            for (Map.Entry<String, Long> entry : matchingWords) {
                 sortedWords.add(entry.getKey());
             }
         } else {
@@ -358,6 +385,7 @@ public class SoftKeyboard extends InputMethodService
         candidates = new ArrayList<>();
         updateCandidateViewAndComposingText();
     }
+
     private void commitInput() {
         getCurrentInputConnection().commitText(compositionText.toString(), compositionText.length());
         reset();
@@ -390,10 +418,10 @@ public class SoftKeyboard extends InputMethodService
             mLastShiftTime = now;
         }
     }
-    
+
     public void swipeRight() {
     }
-    
+
     public void swipeLeft() {
     }
 
@@ -402,10 +430,10 @@ public class SoftKeyboard extends InputMethodService
 
     public void swipeUp() {
     }
-    
+
     public void onPress(int primaryCode) {
     }
-    
+
     public void onRelease(int primaryCode) {
     }
 }

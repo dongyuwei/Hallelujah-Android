@@ -22,4 +22,5 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.8.5'
     implementation 'org.apache.commons:commons-collections4:4.4'
     implementation 'androidx.recyclerview:recyclerview:1.2.1'
+    implementation group: 'io.gitlab.rxp90', name: 'jsymspell', version: '1.0'
 }

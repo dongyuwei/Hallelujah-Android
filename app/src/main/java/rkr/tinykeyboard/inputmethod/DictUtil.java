@@ -6,8 +6,8 @@ import java.io.IOException;
 import java.io.InputStream;
 
 public class DictUtil {
-    static String getJsonFromAssets(Context context, String fileName) {
-        String jsonString;
+    static String getFileContentFromAssets(Context context, String fileName) {
+        String content;
         try {
             InputStream is = context.getAssets().open(fileName);
 
@@ -15,13 +15,12 @@ public class DictUtil {
             byte[] buffer = new byte[size];
             is.read(buffer);
             is.close();
-
-            jsonString = new String(buffer, "UTF-8");
+            content = new String(buffer, "UTF-8");
         } catch (IOException e) {
             e.printStackTrace();
             return null;
         }
 
-        return jsonString;
+        return content;
     }
 }
