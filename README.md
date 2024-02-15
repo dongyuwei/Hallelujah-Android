@@ -1,4 +1,5 @@
 # Hallelujah-Android, 哈利路亚输入法 Android 版
+![github actions](https://github.com/dongyuwei/Hallelujah-Android/actions/workflows/android.yml/badge.svg)
 
 基于 [Tiny Keyboard](https://github.com/rkkr/tiny-keyboard) 移植 [hallelujahIM](https://github.com/dongyuwei/hallelujahIM) 到 Android 平台。
 
