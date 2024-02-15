@@ -70,7 +70,7 @@ public class SoftKeyboard extends InputMethodService
 
     private ExecutorService executorService;
     private StringBuilder compositionText = new StringBuilder();
-    private PatriciaTrie<Double> trie;
+    private PatriciaTrie<Long> trie;
     private List<String> candidates = new ArrayList<>();
     private Map<String, List<String>> pinyinMap = new HashMap<>();
 
@@ -88,11 +88,11 @@ public class SoftKeyboard extends InputMethodService
         executorService.execute(() -> {
             Gson gson = new Gson();
             String jsonString = DictUtil.getJsonFromAssets(getApplicationContext(), "google_227800_words.json");
-            Type mapType = new TypeToken<Map<String, Double>>(){}.getType();
-            Map<String, Double> map = gson.fromJson(jsonString, mapType);
+            Type mapType = new TypeToken<Map<String, Long>>(){}.getType();
+            Map<String, Long> map = gson.fromJson(jsonString, mapType);
 
             trie = new PatriciaTrie<>();
-            for (Map.Entry<String, Double> entry : map.entrySet()) {
+            for (Map.Entry<String, Long> entry : map.entrySet()) {
                 trie.put(entry.getKey(), entry.getValue());
             }
 
@@ -333,8 +333,8 @@ public class SoftKeyboard extends InputMethodService
             return new ArrayList<>();
         }
         String prefix = compositionText.toString();
-        Map<String, Double> prefixMap = trie.prefixMap(prefix);
-        List<Map.Entry<String, Double>> matchingWords = new ArrayList<>(prefixMap.entrySet());
+        Map<String, Long> prefixMap = trie.prefixMap(prefix);
+        List<Map.Entry<String, Long>> matchingWords = new ArrayList<>(prefixMap.entrySet());
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             matchingWords.sort(Map.Entry.comparingByValue(Collections.reverseOrder())); // Sort by frequency, highest first
         }
@@ -342,7 +342,7 @@ public class SoftKeyboard extends InputMethodService
         List<String> sortedWords = new ArrayList<>();
         sortedWords.add(prefix);
         if (!matchingWords.isEmpty()) {
-            for (Map.Entry<String, Double> entry : matchingWords) {
+            for (Map.Entry<String, Long> entry : matchingWords) {
                 sortedWords.add(entry.getKey());
             }
         } else {
