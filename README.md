@@ -3,6 +3,10 @@
 
 基于 [Tiny Keyboard](https://github.com/rkkr/tiny-keyboard) 移植 [hallelujahIM](https://github.com/dongyuwei/hallelujahIM) 到 Android 平台。
 
+目前已经完成功能：
+- 英语单词自动补全；
+- 输入拼音（全拼），显示英语候选词列表。
+
 <img src="images/him.jpg" width="500"/>
 
 <hr>
