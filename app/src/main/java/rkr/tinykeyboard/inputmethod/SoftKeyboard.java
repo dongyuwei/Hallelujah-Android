@@ -96,10 +96,11 @@ public class SoftKeyboard extends InputMethodService
                 trie.put(entry.getKey(), entry.getValue());
             }
 
-
             String pinyinJson = DictUtil.getJsonFromAssets(getApplicationContext(), "cedict.json");
             Type pinyinType = new TypeToken<Map<String, List<String>>>(){}.getType();
             pinyinMap = gson.fromJson(pinyinJson, pinyinType);
+
+            System.out.println("Hallelujah dictionary is ready now!");
         });
     }
 
@@ -121,6 +122,15 @@ public class SoftKeyboard extends InputMethodService
         candidatesRecyclerView.setLayoutManager(layoutManager);
 
         return candidatesView;
+    }
+
+    @Override
+    public void onComputeInsets(InputMethodService.Insets outInsets) {
+        // https://stackoverflow.com/questions/11840627/rejusting-ui-with-candidateview-visible-in-custom-keyboard
+        super.onComputeInsets(outInsets);
+        if (!isFullscreenMode()) {
+            outInsets.contentTopInsets = outInsets.visibleTopInsets;
+        }
     }
 
     private void updateCandidatesList(List<String> candidates) {
@@ -183,6 +193,9 @@ public class SoftKeyboard extends InputMethodService
 
     @Override public void onStartInput(EditorInfo attribute, boolean restarting) {
         super.onStartInput(attribute, restarting);
+
+        // https://issuetracker.google.com/issues/246132117
+        setCandidatesViewShown(true);
         
         // We are now going to initialize our state based on the type of
         // text being edited.
@@ -332,7 +345,7 @@ public class SoftKeyboard extends InputMethodService
         if (compositionText.length() == 0) {
             return new ArrayList<>();
         }
-        String prefix = compositionText.toString();
+        String prefix = compositionText.toString().toLowerCase();
         Map<String, Long> prefixMap = trie.prefixMap(prefix);
         List<Map.Entry<String, Long>> matchingWords = new ArrayList<>(prefixMap.entrySet());
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
