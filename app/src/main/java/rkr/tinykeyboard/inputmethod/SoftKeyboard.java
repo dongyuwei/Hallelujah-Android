@@ -52,7 +52,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class SoftKeyboard extends InputMethodService
-        implements KeyboardView.OnKeyboardActionListener  {
+        implements KeyboardView.OnKeyboardActionListener {
 
     private InputMethodManager mInputMethodManager;
 
@@ -61,11 +61,11 @@ public class SoftKeyboard extends InputMethodService
     private int mLastDisplayWidth;
     private boolean mCapsLock;
     private long mLastShiftTime;
-    
+
     private LatinKeyboard mSymbolsKeyboard;
     private LatinKeyboard mSymbolsShiftedKeyboard;
     private LatinKeyboard mQwertyKeyboard;
-    
+
     private LatinKeyboard mCurKeyboard;
 
     private ExecutorService executorService;
@@ -75,9 +75,10 @@ public class SoftKeyboard extends InputMethodService
     private Map<String, List<String>> pinyinMap = new HashMap<>();
     private InputMode inputMode = InputMode.English;
 
-    @Override public void onCreate() {
+    @Override
+    public void onCreate() {
         super.onCreate();
-        mInputMethodManager = (InputMethodManager)getSystemService(INPUT_METHOD_SERVICE);
+        mInputMethodManager = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
 
         if (trie == null) {
             executorService = Executors.newSingleThreadExecutor();
@@ -89,7 +90,8 @@ public class SoftKeyboard extends InputMethodService
         executorService.execute(() -> {
             Gson gson = new Gson();
             String jsonString = DictUtil.getContentFromAssets(getApplicationContext(), "google_227800_words.json");
-            Type mapType = new TypeToken<Map<String, Long>>(){}.getType();
+            Type mapType = new TypeToken<Map<String, Long>>() {
+            }.getType();
             Map<String, Long> map = gson.fromJson(jsonString, mapType);
 
             trie = new PatriciaTrie<>();
@@ -98,7 +100,8 @@ public class SoftKeyboard extends InputMethodService
             }
 
             String pinyinJson = DictUtil.getContentFromAssets(getApplicationContext(), "cedict.json");
-            Type pinyinType = new TypeToken<Map<String, List<String>>>(){}.getType();
+            Type pinyinType = new TypeToken<Map<String, List<String>>>() {
+            }.getType();
             pinyinMap = gson.fromJson(pinyinJson, pinyinType);
 
             String pinyinTxt = DictUtil.getContentFromAssets(getApplicationContext(), "google_pinyin_rawdict_utf8_65105_freq.txt");
@@ -163,7 +166,8 @@ public class SoftKeyboard extends InputMethodService
         return createDisplayContext(wm.getDefaultDisplay());
     }
 
-    @Override public void onInitializeInterface() {
+    @Override
+    public void onInitializeInterface() {
         final Context displayContext = getDisplayContext();
 
         if (mQwertyKeyboard != null) {
@@ -179,7 +183,8 @@ public class SoftKeyboard extends InputMethodService
         mSymbolsShiftedKeyboard = new LatinKeyboard(displayContext, R.xml.symbols_shift);
     }
 
-    @Override public View onCreateInputView() {
+    @Override
+    public View onCreateInputView() {
         mInputView = (KeyboardView) getLayoutInflater().inflate(R.layout.input, null);
         mInputView.setOnKeyboardActionListener(this);
         mInputView.setPreviewEnabled(false);
@@ -195,12 +200,13 @@ public class SoftKeyboard extends InputMethodService
         mInputView.setKeyboard(nextKeyboard);
     }
 
-    @Override public void onStartInput(EditorInfo attribute, boolean restarting) {
+    @Override
+    public void onStartInput(EditorInfo attribute, boolean restarting) {
         super.onStartInput(attribute, restarting);
 
         // https://issuetracker.google.com/issues/246132117
         setCandidatesViewShown(true);
-        
+
         // We are now going to initialize our state based on the type of
         // text being edited.
         switch (attribute.inputType & InputType.TYPE_MASK_CLASS) {
@@ -211,30 +217,32 @@ public class SoftKeyboard extends InputMethodService
                 // no extra features.
                 mCurKeyboard = mSymbolsKeyboard;
                 break;
-                
+
             default:
                 // For all unknown input types, default to the alphabetic
                 // keyboard with no special features.
                 mCurKeyboard = mQwertyKeyboard;
                 updateShiftKeyState(attribute);
         }
-        
+
         // Update the label on the enter key, depending on what the application
         // says it will do.
         mCurKeyboard.setImeOptions(getResources(), attribute.imeOptions);
     }
 
-    @Override public void onFinishInput() {
+    @Override
+    public void onFinishInput() {
         super.onFinishInput();
         compositionText = new StringBuilder();
-        
+
         mCurKeyboard = mQwertyKeyboard;
         if (mInputView != null) {
             mInputView.closing();
         }
     }
-    
-    @Override public void onStartInputView(EditorInfo attribute, boolean restarting) {
+
+    @Override
+    public void onStartInputView(EditorInfo attribute, boolean restarting) {
         super.onStartInputView(attribute, restarting);
         // Apply the selected keyboard to the input view.
         setLatinKeyboard(mCurKeyboard);
@@ -284,7 +292,7 @@ public class SoftKeyboard extends InputMethodService
 
     public void onText(CharSequence text) {
     }
-    
+
     private void handleBackspace() {
         keyDownUp(KeyEvent.KEYCODE_DEL);
         updateShiftKeyState(getCurrentInputEditorInfo());
@@ -312,7 +320,7 @@ public class SoftKeyboard extends InputMethodService
         if (mInputView == null) {
             return;
         }
-        
+
         Keyboard currentKeyboard = mInputView.getKeyboard();
         if (mQwertyKeyboard == currentKeyboard) {
             // Alphabet keyboard
@@ -328,7 +336,7 @@ public class SoftKeyboard extends InputMethodService
             mSymbolsKeyboard.setShifted(false);
         }
     }
-    
+
     private void handleCharacter(int primaryCode) {
         if (isInputViewShown()) {
             if (mInputView.isShifted()) {
@@ -368,7 +376,7 @@ public class SoftKeyboard extends InputMethodService
             }
             return sortedWords;
         } else {
-         return PinyinDict.getCandidates(prefix);
+            return PinyinDict.getCandidates(prefix);
         }
     }
 
@@ -377,6 +385,7 @@ public class SoftKeyboard extends InputMethodService
         candidates = new ArrayList<>();
         updateCandidateViewAndComposingText();
     }
+
     private void commitInput() {
         getCurrentInputConnection().commitText(compositionText.toString(), compositionText.length());
         reset();
@@ -396,7 +405,20 @@ public class SoftKeyboard extends InputMethodService
 
 
     private void handleLanguageSwitch() {
-        inputMode = inputMode == InputMode.English ? InputMode.Pinyin : InputMode.English;
+        List<Keyboard.Key> keys = mQwertyKeyboard.getKeys();
+        Keyboard.Key switchKey = keys.stream()
+                .filter(key -> key.codes != null && key.codes.length > 0 && key.codes[0] == LatinKeyboard.KEYCODE_LANGUAGE_SWITCH).findFirst().get();
+
+        if (inputMode == InputMode.English) {
+            inputMode = InputMode.Pinyin;
+            switchKey.label = "\uD83C\uDF10中文";
+        } else {
+            inputMode = InputMode.English;
+            switchKey.label = "\uD83C\uDF10En";
+        }
+
+        // Redraw the keyboard with updated labels
+        mInputView.invalidateAllKeys();
     }
 
     private void checkToggleCapsLock() {
@@ -408,10 +430,10 @@ public class SoftKeyboard extends InputMethodService
             mLastShiftTime = now;
         }
     }
-    
+
     public void swipeRight() {
     }
-    
+
     public void swipeLeft() {
     }
 
@@ -420,10 +442,10 @@ public class SoftKeyboard extends InputMethodService
 
     public void swipeUp() {
     }
-    
+
     public void onPress(int primaryCode) {
     }
-    
+
     public void onRelease(int primaryCode) {
     }
 }
