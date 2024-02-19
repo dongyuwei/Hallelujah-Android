@@ -405,18 +405,23 @@ public class SoftKeyboard extends InputMethodService
 
 
     private void handleLanguageSwitch() {
+        reset();
+        inputMode = inputMode == InputMode.English ? InputMode.Pinyin : InputMode.English;
+        updateStatusOfSwitchKey();
+    }
+
+    private void updateStatusOfSwitchKey() {
         List<Keyboard.Key> keys = mQwertyKeyboard.getKeys();
         Keyboard.Key switchKey = keys.stream()
-                .filter(key -> key.codes != null && key.codes.length > 0 && key.codes[0] == LatinKeyboard.KEYCODE_LANGUAGE_SWITCH).findFirst().get();
+                .filter(key -> key.codes != null && key.codes.length > 0 && key.codes[0] == LatinKeyboard.KEYCODE_LANGUAGE_SWITCH)
+                .findFirst()
+                .get();
 
-        if (inputMode == InputMode.English) {
-            inputMode = InputMode.Pinyin;
+        if (inputMode == InputMode.Pinyin) {
             switchKey.label = "\uD83C\uDF10中文";
         } else {
-            inputMode = InputMode.English;
             switchKey.label = "\uD83C\uDF10En";
         }
-
         // Redraw the keyboard with updated labels
         mInputView.invalidateAllKeys();
     }
