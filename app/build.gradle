@@ -4,7 +4,7 @@ android {
     defaultConfig {
         applicationId "rkr.tinykeyboard.inputmethod"
         compileSdk 34
-        minSdkVersion 16
+        minSdkVersion 24
         targetSdkVersion 34
         versionCode 8
         versionName "0.8"

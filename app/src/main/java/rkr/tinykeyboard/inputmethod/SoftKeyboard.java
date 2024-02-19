@@ -73,6 +73,7 @@ public class SoftKeyboard extends InputMethodService
     private PatriciaTrie<Long> trie;
     private List<String> candidates = new ArrayList<>();
     private Map<String, List<String>> pinyinMap = new HashMap<>();
+    private InputMode inputMode = InputMode.English;
 
     @Override public void onCreate() {
         super.onCreate();
@@ -87,7 +88,7 @@ public class SoftKeyboard extends InputMethodService
     private void loadDictionaryAsync() {
         executorService.execute(() -> {
             Gson gson = new Gson();
-            String jsonString = DictUtil.getJsonFromAssets(getApplicationContext(), "google_227800_words.json");
+            String jsonString = DictUtil.getContentFromAssets(getApplicationContext(), "google_227800_words.json");
             Type mapType = new TypeToken<Map<String, Long>>(){}.getType();
             Map<String, Long> map = gson.fromJson(jsonString, mapType);
 
@@ -96,9 +97,12 @@ public class SoftKeyboard extends InputMethodService
                 trie.put(entry.getKey(), entry.getValue());
             }
 
-            String pinyinJson = DictUtil.getJsonFromAssets(getApplicationContext(), "cedict.json");
+            String pinyinJson = DictUtil.getContentFromAssets(getApplicationContext(), "cedict.json");
             Type pinyinType = new TypeToken<Map<String, List<String>>>(){}.getType();
             pinyinMap = gson.fromJson(pinyinJson, pinyinType);
+
+            String pinyinTxt = DictUtil.getContentFromAssets(getApplicationContext(), "google_pinyin_rawdict_utf8_65105_freq.txt");
+            PinyinDict.buildPinyinDict(pinyinTxt);
 
             System.out.println("Hallelujah dictionary is ready now!");
         });
@@ -346,24 +350,26 @@ public class SoftKeyboard extends InputMethodService
             return new ArrayList<>();
         }
         String prefix = compositionText.toString().toLowerCase();
-        Map<String, Long> prefixMap = trie.prefixMap(prefix);
-        List<Map.Entry<String, Long>> matchingWords = new ArrayList<>(prefixMap.entrySet());
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        if (inputMode == InputMode.English) {
+            Map<String, Long> prefixMap = trie.prefixMap(prefix);
+            List<Map.Entry<String, Long>> matchingWords = new ArrayList<>(prefixMap.entrySet());
             matchingWords.sort(Map.Entry.comparingByValue(Collections.reverseOrder())); // Sort by frequency, highest first
-        }
 
-        List<String> sortedWords = new ArrayList<>();
-        sortedWords.add(prefix);
-        if (!matchingWords.isEmpty()) {
-            for (Map.Entry<String, Long> entry : matchingWords) {
-                sortedWords.add(entry.getKey());
+            List<String> sortedWords = new ArrayList<>();
+            sortedWords.add(prefix);
+            if (!matchingWords.isEmpty()) {
+                for (Map.Entry<String, Long> entry : matchingWords) {
+                    sortedWords.add(entry.getKey());
+                }
+            } else {
+                if (pinyinMap.containsKey(prefix)) {
+                    sortedWords.addAll(pinyinMap.get(prefix));
+                }
             }
+            return sortedWords;
         } else {
-            if (pinyinMap.containsKey(prefix)) {
-                sortedWords.addAll(pinyinMap.get(prefix));
-            }
+         return PinyinDict.getCandidates(prefix);
         }
-        return sortedWords;
     }
 
     public void reset() {
@@ -388,10 +394,9 @@ public class SoftKeyboard extends InputMethodService
         return window.getAttributes().token;
     }
 
+
     private void handleLanguageSwitch() {
-        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1) {
-            mInputMethodManager.switchToNextInputMethod(getToken(), false /* onlyCurrentIme */);
-        }
+        inputMode = inputMode == InputMode.English ? InputMode.Pinyin : InputMode.English;
     }
 
     private void checkToggleCapsLock() {
