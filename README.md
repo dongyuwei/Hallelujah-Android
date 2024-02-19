@@ -8,7 +8,8 @@
 - 输入拼音（全拼），显示英语候选词列表；
 - 切换到拼音输入模式（使用Google 拼音词库）以输出汉字；
 
-<img src="images/him.jpg" width="500"/>
+<img src="images/en.jpg" width="500"/>
+<img src="images/zh.jpg" width="500"/>
 
 <hr>
 以下是 [Tiny Keyboard](https://github.com/rkkr/tiny-keyboard) 原始项目文档
