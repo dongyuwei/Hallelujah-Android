@@ -11,7 +11,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class PinyinDict {
-    private static PatriciaTrie<Float> trie = new PatriciaTrie<>();
+    private static PatriciaTrie<Double> trie = new PatriciaTrie<>();
     private static Map<String, List<WordInfo>> pinyinDict = new HashMap<>();
 
     public static void buildPinyinDict(String content) {
@@ -22,21 +22,23 @@ public class PinyinDict {
 
         lines.forEach(line -> {
             String[] arr = line.split(" 0 ");
+            // 董 2494.97706011 0 dong
+            // 西红柿 760.851466162 0 xi hong shi
 
             if (arr.length == 2) {
                 String abbr = Arrays.stream(arr[1].split(" "))
                         .map(item -> item.substring(0, 1))
                         .collect(Collectors.joining());
 
-                String pinyin = arr[1].replaceAll("\\s+", "");
+                String pinyin = arr[1].replace(" ", "");
                 String[] wordFrequency = arr[0].split(" ");
                 String word = wordFrequency[0];
-                float frequency = Float.parseFloat(wordFrequency[1]);
-                WordInfo value = new WordInfo(word, frequency);
-                trie.put(word, frequency);
-                pinyinDict.computeIfAbsent(pinyin, k -> new ArrayList<>()).add(value);
+                double frequency = Double.parseDouble(wordFrequency[1]);
+                WordInfo wordInfo = new WordInfo(word, frequency);
+                trie.put(pinyin, frequency);
+                pinyinDict.computeIfAbsent(pinyin, k -> new ArrayList<>()).add(wordInfo);
                 if (abbr.length() >= 1) {
-                    pinyinDict.computeIfAbsent(abbr, k -> new ArrayList<>()).add(value);
+                    pinyinDict.computeIfAbsent(abbr, k -> new ArrayList<>()).add(wordInfo);
                 }
             }
         });
@@ -52,28 +54,34 @@ public class PinyinDict {
                 // Full pinyin match or abbr match
                 list = value;
             } else if (input.length() >= 1) {
-                Map<String, Float> prefixMap = trie.prefixMap(input);
-                List<Map.Entry<String, Float>> matchingWords = new ArrayList<>(prefixMap.entrySet());
-                if (!matchingWords.isEmpty()) {
-                    for (Map.Entry<String, Float> entry : matchingWords) {
-                        List<WordInfo> words = pinyinDict.get(entry.getKey());
-                        if (words != null) {
-                            list = words;
-                        }
-                    }
-                }
+                // pinyin prefix match
+                list = getCandidatesFromTrie(input);
             }
 
             // Sort candidates by word frequency
             candidates = list.stream()
                     .filter(java.util.Objects::nonNull)
-                    .sorted((a, b) -> Float.compare(b.getFrequency(), a.getFrequency()))
+                    .sorted((a, b) -> Double.compare(b.getFrequency(), a.getFrequency()))
                     .map(WordInfo::getWord)
                     .distinct()
                     .collect(Collectors.toList());
         }
 
-        // Removing duplicates
+        return candidates;
+    }
+
+    private static List<WordInfo> getCandidatesFromTrie(String prefix) {
+        List<WordInfo> candidates = new ArrayList<>();
+        Map<String, Double> prefixMap = trie.prefixMap(prefix);
+        if (!prefixMap.isEmpty()) {
+            List<Map.Entry<String, Double>> matchingWords = new ArrayList<>(prefixMap.entrySet());
+            for (Map.Entry<String, Double> entry : matchingWords) {
+                List<WordInfo> words = pinyinDict.get(entry.getKey());
+                if (words != null) {
+                    candidates.addAll(words);
+                }
+            }
+        }
         return candidates;
     }
 
@@ -82,14 +90,14 @@ public class PinyinDict {
             return word;
         }
 
-        public float getFrequency() {
+        public double getFrequency() {
             return frequency;
         }
 
         String word;
-        float frequency;
+        double frequency;
 
-        WordInfo(String word, float frequency) {
+        WordInfo(String word, double frequency) {
             this.word = word;
             this.frequency = frequency;
         }
