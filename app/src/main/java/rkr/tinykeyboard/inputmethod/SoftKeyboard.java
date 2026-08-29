@@ -16,21 +16,17 @@
 
 package rkr.tinykeyboard.inputmethod;
 
-import android.app.Dialog;
 import android.content.Context;
 import android.inputmethodservice.InputMethodService;
 import android.inputmethodservice.Keyboard;
 import android.inputmethodservice.KeyboardView;
 import android.os.Build;
-import android.os.IBinder;
 import android.text.InputType;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.Window;
 import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
-import android.view.inputmethod.InputMethodManager;
 
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -48,8 +44,6 @@ import java.util.concurrent.Executors;
 
 public class SoftKeyboard extends InputMethodService
         implements KeyboardView.OnKeyboardActionListener {
-
-    private InputMethodManager mInputMethodManager;
 
     private KeyboardView mInputView;
     private RecyclerView candidatesRecyclerView;
@@ -72,8 +66,6 @@ public class SoftKeyboard extends InputMethodService
     @Override
     public void onCreate() {
         super.onCreate();
-        mInputMethodManager = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
-
         if (pinyinMap.isEmpty()) {
             executorService = Executors.newSingleThreadExecutor();
             loadDictionaryAsync();
@@ -187,11 +179,14 @@ public class SoftKeyboard extends InputMethodService
     }
 
     private void setLatinKeyboard(LatinKeyboard nextKeyboard) {
-        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.KITKAT) {
-            final boolean shouldSupportLanguageSwitchKey = mInputMethodManager.shouldOfferSwitchingToNextInputMethod(getToken());
-            nextKeyboard.setLanguageSwitchKeyVisibility(shouldSupportLanguageSwitchKey);
-        }
+        // The switch key toggles English/Pinyin input mode inside this IME, so
+        // it must stay visible even when the system wouldn't offer switching
+        // to another input method (e.g. single-IME devices).
+        nextKeyboard.setLanguageSwitchKeyVisibility(true);
         mInputView.setKeyboard(nextKeyboard);
+        if (nextKeyboard == mQwertyKeyboard && mInputView != null) {
+            updateStatusOfSwitchKey();
+        }
     }
 
     @Override
@@ -352,19 +347,6 @@ public class SoftKeyboard extends InputMethodService
         getCurrentInputConnection().commitText(compositionText.toString(), compositionText.length());
         reset();
     }
-
-    private IBinder getToken() {
-        final Dialog dialog = getWindow();
-        if (dialog == null) {
-            return null;
-        }
-        final Window window = dialog.getWindow();
-        if (window == null) {
-            return null;
-        }
-        return window.getAttributes().token;
-    }
-
 
     private void handleLanguageSwitch() {
         reset();

@@ -12,6 +12,9 @@ android {
     buildTypes {
         release {
             minifyEnabled true
+            // Sideloading distribution via GitHub releases: sign releases with
+            // the debug key so the APK installs without a release keystore.
+            signingConfig signingConfigs.debug
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }

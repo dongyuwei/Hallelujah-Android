@@ -6,4 +6,4 @@ cd "$(dirname "$0")"
 ./gradlew assembleRelease
 
 echo
-echo "Release APK (unsigned): $(pwd)/app/build/outputs/apk/release/app-release-unsigned.apk"
+echo "Release APK (signed with debug key): $(pwd)/app/build/outputs/apk/release/app-release.apk"
