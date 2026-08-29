@@ -44,7 +44,14 @@ jobs:
         path: app/build/reports/tests/
 
     - name: Build debug APK
-      run: ./gradlew assembleDebug
+      run: |
+        set +e
+        ./gradlew assembleDebug --stacktrace > build.log 2>&1
+        code=$?
+        grep -nE "error:|CMake Error|ninja: build stopped|FAILURE: Build" build.log | head -10 | while IFS= read -r line; do
+          echo "::error::${line:0:500}"
+        done
+        exit $code
 
     - name: Upload debug APK artifact
       uses: actions/upload-artifact@v4
