@@ -3,16 +3,25 @@ name: Android CI
 on:
   push:
     branches: [ "master" ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
   pull_request:
     branches: [ "master" ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
 
 jobs:
-  build:
-
+  test-and-build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # needed by the automatic pre-release step
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # full history and tags, for the release changelog range
     - name: set up JDK
       uses: actions/setup-java@v4
       with:
@@ -22,5 +31,68 @@ jobs:
 
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
-    - name: Build with Gradle
-      run: ./gradlew build
+
+    - name: Run unit tests
+      run: ./gradlew testDebugUnitTest
+
+    - name: Upload test reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: unit-test-reports
+        path: app/build/reports/tests/
+
+    - name: Build debug APK
+      run: ./gradlew assembleDebug
+
+    - name: Build release APK
+      if: github.event_name == 'push'
+      run: ./gradlew assembleRelease
+
+    - name: Upload debug APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-debug
+        path: app/build/outputs/apk/debug/app-debug.apk
+
+    - name: Upload release APK artifact
+      if: github.event_name == 'push'
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-release
+        path: app/build/outputs/apk/release/app-release-unsigned.apk
+
+    - name: Create GitHub pre-release
+      if: github.event_name == 'push'
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        set -euo pipefail
+        APK_DEBUG="app/build/outputs/apk/debug/app-debug.apk"
+        APK_RELEASE="app/build/outputs/apk/release/app-release-unsigned.apk"
+        SHA="$(git rev-parse --short HEAD)"
+        TAG="build-${SHA}"
+        TITLE="Automated build $(date '+%Y-%m-%d %H:%M') (${SHA})"
+
+        # Commit subjects since the previous release tag (excluding this
+        # commit's own tag, so workflow re-runs don't produce an empty range)
+        RANGE="HEAD"
+        for t in $(git tag --sort=-creatordate); do
+          if [ "$t" != "$TAG" ]; then RANGE="${t}..HEAD"; break; fi
+        done
+        CHANGELOG="$(git log --pretty=format:'%s' "$RANGE" | head -n 30)"
+
+        NOTES="Automated release built from commit ${SHA}."
+        if [ -n "$CHANGELOG" ]; then
+          NOTES="$(printf '%s\n\n%s' "$NOTES" "$CHANGELOG")"
+        fi
+
+        # Replace any existing release for this commit (e.g. on workflow re-run)
+        if gh release view "$TAG" >/dev/null 2>&1; then
+          gh release delete "$TAG" --yes --cleanup-tag
+        fi
+
+        gh release create "$TAG" "$APK_DEBUG" "$APK_RELEASE" \
+          --title "$TITLE" \
+          --notes "$NOTES" \
+          --prerelease

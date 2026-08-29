@@ -38,16 +38,11 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
-import org.apache.commons.collections4.trie.PatriciaTrie;
-
 import java.lang.reflect.Type;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -70,9 +65,8 @@ public class SoftKeyboard extends InputMethodService
 
     private ExecutorService executorService;
     private StringBuilder compositionText = new StringBuilder();
-    private PatriciaTrie<Long> trie;
-    private List<String> candidates = new ArrayList<>();
     private Map<String, List<String>> pinyinMap = new HashMap<>();
+    private volatile CandidateProvider candidateProvider;
     private InputMode inputMode = InputMode.English;
 
     @Override
@@ -80,7 +74,7 @@ public class SoftKeyboard extends InputMethodService
         super.onCreate();
         mInputMethodManager = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
 
-        if (trie == null) {
+        if (pinyinMap.isEmpty()) {
             executorService = Executors.newSingleThreadExecutor();
             loadDictionaryAsync();
         }
@@ -88,24 +82,15 @@ public class SoftKeyboard extends InputMethodService
 
     private void loadDictionaryAsync() {
         executorService.execute(() -> {
+            DictionaryDb.init(getApplicationContext());
+
             Gson gson = new Gson();
-            String jsonString = DictUtil.getContentFromAssets(getApplicationContext(), "google_227800_words.json");
-            Type mapType = new TypeToken<Map<String, Long>>() {
-            }.getType();
-            Map<String, Long> map = gson.fromJson(jsonString, mapType);
-
-            trie = new PatriciaTrie<>();
-            for (Map.Entry<String, Long> entry : map.entrySet()) {
-                trie.put(entry.getKey(), entry.getValue());
-            }
-
             String pinyinJson = DictUtil.getContentFromAssets(getApplicationContext(), "cedict.json");
             Type pinyinType = new TypeToken<Map<String, List<String>>>() {
             }.getType();
             pinyinMap = gson.fromJson(pinyinJson, pinyinType);
 
-            String pinyinTxt = DictUtil.getContentFromAssets(getApplicationContext(), "google_pinyin_rawdict_utf8_65105_freq.txt");
-            PinyinDict.buildPinyinDict(pinyinTxt);
+            candidateProvider = new CandidateProvider(DictionaryDb.getInstance(), pinyinMap);
 
             System.out.println("Hallelujah dictionary is ready now!");
         });
@@ -304,16 +289,12 @@ public class SoftKeyboard extends InputMethodService
     }
 
     private void updateCandidateViewAndComposingText() {
-        List<String> candidateList = getCandidates();
-        List<String> candidates = candidateList.subList(0, Math.min(candidateList.size(), 20));
-        updateCandidatesList(getCandidatesWithoutDuplicates(candidates));
+        List<String> candidates = candidateProvider == null
+                ? new ArrayList<>()
+                : candidateProvider.getDisplayCandidates(compositionText.toString(), inputMode);
+        updateCandidatesList(candidates);
 
         getCurrentInputConnection().setComposingText(compositionText, compositionText.length());
-    }
-
-    private ArrayList<String> getCandidatesWithoutDuplicates(List<String> candidates) {
-        Set<String> setWithoutDuplicates = new LinkedHashSet<>(candidates);
-        return new ArrayList<>(setWithoutDuplicates);
     }
 
     private void handleShift() {
@@ -353,36 +334,8 @@ public class SoftKeyboard extends InputMethodService
         updateShiftKeyState(getCurrentInputEditorInfo());
     }
 
-    private List<String> getCandidates() {
-        if (compositionText.length() == 0) {
-            return new ArrayList<>();
-        }
-        String prefix = compositionText.toString().toLowerCase();
-        if (inputMode == InputMode.English) {
-            Map<String, Long> prefixMap = trie.prefixMap(prefix);
-            List<Map.Entry<String, Long>> matchingWords = new ArrayList<>(prefixMap.entrySet());
-            matchingWords.sort(Map.Entry.comparingByValue(Collections.reverseOrder())); // Sort by frequency, highest first
-
-            List<String> sortedWords = new ArrayList<>();
-            sortedWords.add(prefix);
-            if (!matchingWords.isEmpty()) {
-                for (Map.Entry<String, Long> entry : matchingWords) {
-                    sortedWords.add(entry.getKey());
-                }
-            } else {
-                if (pinyinMap.containsKey(prefix)) {
-                    sortedWords.addAll(pinyinMap.get(prefix));
-                }
-            }
-            return sortedWords;
-        } else {
-            return PinyinDict.getCandidates(prefix);
-        }
-    }
-
     public void reset() {
         compositionText = new StringBuilder();
-        candidates = new ArrayList<>();
         updateCandidateViewAndComposingText();
     }
 

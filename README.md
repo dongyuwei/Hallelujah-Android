@@ -8,6 +8,17 @@
 - 输入拼音（全拼），显示英语候选词列表；
 - 切换到拼音输入模式（使用Google 拼音词库）以输出汉字；
 
+词典数据与 macOS 版 [hallelujahIM](https://github.com/dongyuwei/hallelujahIM)、Windows 版 [Hallelujah-Windows](https://github.com/dongyuwei/Hallelujah-Windows) 共用同一套 SQLite 数据库：
+- `words_with_frequency_and_translation_and_ipa.sqlite3`：英语单词频率表（`words` 表），首次启动时从 assets 复制到设备保护存储后只读查询；
+- `pinyin_data.sqlite3`：拼音（全拼及首字母缩写）到汉字/词组表（`pinyin_data` 表），同样只读查询；
+- `cedict.json` 仍保留在内存中，用于英文模式下无匹配单词时的拼音回退候选。
+
+## 开发
+
+- 构建：`./build-debug.sh` 构建 debug APK；`./build-release.sh` 构建 release APK（R8 混淆，未签名）；
+- 单元测试：`./unit-test.sh`（等价于 `./gradlew testDebugUnitTest`，可追加过滤参数，如 `./unit-test.sh --tests "*DictionarySqlTest*"`）。覆盖两部分：候选词生成/排序/去重逻辑（`CandidateProviderTest`），以及用 [sqlite-jdbc](https://github.com/xerial/sqlite-jdbc) 直接对打包的 `.sqlite3` 词典运行与线上一致的 SQL 查询（`DictionarySqlTest`，验证词库内容与查询结果顺序）；
+- CI：GitHub Actions（`.github/workflows/android.yml`）在代码变更时自动运行单元测试并构建 APK（`*.md` 等文档改动不触发），push 到 master 后自动创建 `build-<短SHA>` pre-release（标题含构建时间与短 SHA，说明中列出自上个 release 以来的提交记录），并附上 debug/release APK。
+
 <img src="images/en.jpg" width="500"/>
 <img src="images/zh.jpg" width="500"/>
 

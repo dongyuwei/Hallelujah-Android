@@ -20,6 +20,9 @@ android {
 
 dependencies {
     implementation 'com.google.code.gson:gson:2.8.5'
-    implementation 'org.apache.commons:commons-collections4:4.4'
     implementation 'androidx.recyclerview:recyclerview:1.2.1'
+
+    testImplementation 'junit:junit:4.13.2'
+    // Runs the real dictionary SQL against the bundled .sqlite3 assets on the JVM.
+    testImplementation 'org.xerial:sqlite-jdbc:3.45.3.0'
 }
