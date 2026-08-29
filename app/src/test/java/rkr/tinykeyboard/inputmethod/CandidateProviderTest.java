@@ -92,6 +92,51 @@ public class CandidateProviderTest {
     }
 
     @Test
+    public void englishMode_noDictMatch_cedictFirstThenSpellLayersInOrder() {
+        cedict.put("xihongshi", Arrays.asList("西红柿"));
+        CandidateProvider.SpellCheck editDistanceLayer = input -> Arrays.asList("something");
+        CandidateProvider.SpellCheck phonexLayer = input -> Arrays.asList("sometimes");
+        CandidateProvider providerWithSpellCheck =
+                new CandidateProvider(dictionary, cedict, editDistanceLayer, phonexLayer);
+
+        List<String> candidates = providerWithSpellCheck.getCandidates("xihongshi", InputMode.English);
+
+        assertEquals(Arrays.asList("xihongshi", "西红柿", "something", "sometimes"), candidates);
+    }
+
+    @Test
+    public void englishMode_noDictMatch_cedictFirstThenSpellSuggestions() {
+        cedict.put("xihongshi", Arrays.asList("西红柿"));
+        CandidateProvider.SpellCheck spellCheck = input -> Arrays.asList("something", "sometimes");
+        CandidateProvider providerWithSpellCheck = new CandidateProvider(dictionary, cedict, spellCheck);
+
+        List<String> candidates = providerWithSpellCheck.getCandidates("xihongshi", InputMode.English);
+
+        assertEquals(Arrays.asList("xihongshi", "西红柿", "something", "sometimes"), candidates);
+    }
+
+    @Test
+    public void englishMode_spellSuggestions_whenNoCedictHitEither() {
+        CandidateProvider.SpellCheck spellCheck = input -> Arrays.asList("extended", "extent");
+        CandidateProvider providerWithSpellCheck = new CandidateProvider(dictionary, cedict, spellCheck);
+
+        List<String> candidates = providerWithSpellCheck.getCandidates("extendd", InputMode.English);
+
+        assertEquals(Arrays.asList("extendd", "extended", "extent"), candidates);
+    }
+
+    @Test
+    public void englishMode_dictionaryMatch_skipsSpellSuggestions() {
+        dictionary.english.put("pa", Arrays.asList("page"));
+        CandidateProvider.SpellCheck spellCheck = input -> {
+            throw new AssertionError("spellcheck must not run when words match");
+        };
+        CandidateProvider providerWithSpellCheck = new CandidateProvider(dictionary, cedict, spellCheck);
+
+        assertEquals(Arrays.asList("pa", "page"), providerWithSpellCheck.getCandidates("pa", InputMode.English));
+    }
+
+    @Test
     public void emptyComposition_returnsNoCandidates() {
         assertEquals(new ArrayList<>(), provider.getCandidates("", InputMode.English));
         assertEquals(new ArrayList<>(), provider.getCandidates("", InputMode.Pinyin));

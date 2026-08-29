@@ -20,17 +20,29 @@ public class CandidateProvider {
         List<String> getHanZiByPinyin(String prefix, int limit);
     }
 
+    /** Fuzzy spelling suggestions for the English-mode fallback path. */
+    public interface SpellCheck {
+        List<String> getSuggestions(String input);
+    }
+
     public static final int MAX_CANDIDATES = 20;
 
     private final Dictionary dictionary;
     private final Map<String, List<String>> pinyinMap;
+    private final SpellCheck[] spellChecks;
 
     /**
      * @param pinyinMap cedict entries used in English mode when no English word matches
      */
     public CandidateProvider(Dictionary dictionary, Map<String, List<String>> pinyinMap) {
+        this(dictionary, pinyinMap, new SpellCheck[0]);
+    }
+
+    /** @param spellChecks suggestion layers applied in order after the cedict fallback */
+    public CandidateProvider(Dictionary dictionary, Map<String, List<String>> pinyinMap, SpellCheck... spellChecks) {
         this.dictionary = dictionary;
         this.pinyinMap = pinyinMap;
+        this.spellChecks = spellChecks;
     }
 
     /** Candidates for display: ranked, capped at {@link #MAX_CANDIDATES} and de-duplicated. */
@@ -52,8 +64,17 @@ public class CandidateProvider {
             List<String> matchingWords = dictionary.getEnglishWords(prefix, MAX_CANDIDATES - 1);
             if (!matchingWords.isEmpty()) {
                 candidates.addAll(matchingWords);
-            } else if (pinyinMap.containsKey(prefix)) {
-                candidates.addAll(pinyinMap.get(prefix));
+            } else {
+                // No English word matches: cedict pinyin fallback first, then
+                // the spellcheck layers (edit-distance fixes, phonetic guesses)
+                // for possible typos.
+                List<String> pinyinCandidates = pinyinMap.get(prefix);
+                if (pinyinCandidates != null) {
+                    candidates.addAll(pinyinCandidates);
+                }
+                for (SpellCheck checker : spellChecks) {
+                    candidates.addAll(checker.getSuggestions(prefix));
+                }
             }
         } else {
             candidates.addAll(dictionary.getHanZiByPinyin(prefix, MAX_CANDIDATES));

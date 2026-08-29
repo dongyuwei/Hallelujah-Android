@@ -90,7 +90,16 @@ public class SoftKeyboard extends InputMethodService
             }.getType();
             pinyinMap = gson.fromJson(pinyinJson, pinyinType);
 
-            candidateProvider = new CandidateProvider(DictionaryDb.getInstance(), pinyinMap);
+            String phonexJson = DictUtil.getContentFromAssets(getApplicationContext(), "phonex_encoded_words.json");
+            Type phonexType = new TypeToken<Map<String, List<String>>>() {
+            }.getType();
+            SpellChecker spellChecker = new SpellChecker(gson.fromJson(phonexJson, phonexType));
+
+            candidateProvider = new CandidateProvider(DictionaryDb.getInstance(), pinyinMap,
+                    new NorvigSpellChecker(DictionaryDb.getInstance()),
+                    new TrieSpellChecker(DictionaryDb.getInstance()::getWordTrie,
+                            DictionaryDb.getInstance()),
+                    spellChecker);
 
             System.out.println("Hallelujah dictionary is ready now!");
         });

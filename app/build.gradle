@@ -16,6 +16,15 @@ android {
         }
     }
     namespace 'rkr.tinykeyboard.inputmethod'
+
+    testOptions {
+        unitTests.all {
+            testLogging {
+                events 'passed', 'failed'
+                showStandardStreams true
+            }
+        }
+    }
 }
 
 dependencies {

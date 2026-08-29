@@ -5,6 +5,7 @@
 
 目前已经完成功能：
 - 英语单词自动补全；
+- 英语单词拼写纠错建议：无匹配单词时，先按 Norvig 式编辑距离（增/删/换/相邻对调一字符）查 `words` 频率表给出候选，再经词典 Trie + Levenshtein DP 剪枝搜索最多 3 个编辑距离的词（覆盖双重/三重打字错误，按距离与词频排序），最后辅以 [Phonex](https://github.com/Yomguithereal/talisman) 音近词建议（与 macOS 版 hallelujahIM 相同机制）；
 - 输入拼音（全拼），显示英语候选词列表；
 - 切换到拼音输入模式（使用Google 拼音词库）以输出汉字；
 
