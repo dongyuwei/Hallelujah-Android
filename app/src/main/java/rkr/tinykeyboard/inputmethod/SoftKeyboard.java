@@ -36,6 +36,7 @@ import com.google.gson.reflect.TypeToken;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -62,6 +63,8 @@ public class SoftKeyboard extends InputMethodService
     private Map<String, List<String>> pinyinMap = new HashMap<>();
     private volatile CandidateProvider candidateProvider;
     private InputMode inputMode = InputMode.English;
+    private final List<String> rimeCandidates = new ArrayList<>();
+    private boolean rimeHasPreedit;
 
     @Override
     public void onCreate() {
@@ -75,6 +78,7 @@ public class SoftKeyboard extends InputMethodService
     private void loadDictionaryAsync() {
         executorService.execute(() -> {
             DictionaryDb.init(getApplicationContext());
+            RimeEngine.init(getApplicationContext());
 
             Gson gson = new Gson();
             String pinyinJson = DictUtil.getContentFromAssets(getApplicationContext(), "cedict.json");
@@ -228,6 +232,12 @@ public class SoftKeyboard extends InputMethodService
     public void onFinishInput() {
         super.onFinishInput();
         compositionText = new StringBuilder();
+        if (RimeEngine.isStarted()) {
+            RimeEngine.nativeClearComposition();
+            getCurrentInputConnection().finishComposingText();
+        }
+        rimeCandidates.clear();
+        rimeHasPreedit = false;
 
         mCurKeyboard = mQwertyKeyboard;
         if (mInputView != null) {
@@ -262,12 +272,7 @@ public class SoftKeyboard extends InputMethodService
     // Implementation of KeyboardViewListener
 
     public void onKey(int primaryCode, int[] keyCodes) {
-        if (primaryCode == Keyboard.KEYCODE_DONE) {
-            commitInput();
-            keyDownUp(KeyEvent.KEYCODE_ENTER);
-        } else if (primaryCode == Keyboard.KEYCODE_DELETE) {
-            handleBackspace();
-        } else if (primaryCode == Keyboard.KEYCODE_SHIFT) {
+        if (primaryCode == Keyboard.KEYCODE_SHIFT) {
             handleShift();
         } else if (primaryCode == LatinKeyboard.KEYCODE_LANGUAGE_SWITCH) {
             handleLanguageSwitch();
@@ -279,6 +284,13 @@ public class SoftKeyboard extends InputMethodService
                 setLatinKeyboard(mSymbolsKeyboard);
                 mSymbolsKeyboard.setShifted(false);
             }
+        } else if (inputMode == InputMode.Pinyin && RimeEngine.isStarted()) {
+            handleRimeKey(primaryCode);
+        } else if (primaryCode == Keyboard.KEYCODE_DONE) {
+            commitInput();
+            keyDownUp(KeyEvent.KEYCODE_ENTER);
+        } else if (primaryCode == Keyboard.KEYCODE_DELETE) {
+            handleBackspace();
         } else {
             handleCharacter(primaryCode);
         }
@@ -295,6 +307,61 @@ public class SoftKeyboard extends InputMethodService
             compositionText.deleteCharAt(compositionText.length() - 1);
         }
         updateCandidateViewAndComposingText();
+    }
+
+    // ---- librime (pinyin mode) ----
+
+    private void handleRimeKey(int primaryCode) {
+        if (RimeEngine.isMaintenancing()) {
+            updateCandidatesList(Collections.singletonList("正在部署词库…"));
+            return;
+        }
+        boolean hadPreedit = rimeHasPreedit;
+        boolean consumed = RimeEngine.nativeProcessKey(RimeEngine.keysymFor(primaryCode), 0);
+        applyRimeResponse(RimeEngine.nativeGetResponse(), hadPreedit);
+
+        if (consumed || rimeHasPreedit) {
+            return; // librime owns this keystroke
+        }
+        // Empty composition and librime ignored the key: direct input.
+        if (primaryCode == Keyboard.KEYCODE_DONE) {
+            keyDownUp(KeyEvent.KEYCODE_ENTER);
+        } else if (primaryCode == Keyboard.KEYCODE_DELETE) {
+            keyDownUp(KeyEvent.KEYCODE_DEL); // backspace belongs to the app
+        } else if (primaryCode > 0) {
+            getCurrentInputConnection().commitText(String.valueOf((char) primaryCode), 1);
+        }
+    }
+
+    private void applyRimeResponse(RimeResponse response, boolean hadPreedit) {
+        if (response.commitText != null) {
+            // commitText replaces any active composing region.
+            getCurrentInputConnection().commitText(response.commitText, 1);
+        }
+        rimeHasPreedit = response.preedit != null && !response.preedit.isEmpty();
+        if (rimeHasPreedit) {
+            getCurrentInputConnection().setComposingText(response.preedit, 1);
+        } else if (response.commitText == null && hadPreedit) {
+            // The composition was deleted by librime (e.g. backspace on the
+            // last char): remove the stale composing region from the field.
+            getCurrentInputConnection().deleteSurroundingText(1, 0);
+        }
+        rimeCandidates.clear();
+        Collections.addAll(rimeCandidates, response.candidates);
+        updateCandidatesList(new ArrayList<>(rimeCandidates));
+    }
+
+    public void onCandidateSelected(String candidate) {
+        if (inputMode == InputMode.Pinyin && RimeEngine.isStarted()) {
+            int index = rimeCandidates.indexOf(candidate);
+            if (index >= 0) {
+                RimeEngine.nativeSelectCandidate(index);
+                applyRimeResponse(RimeEngine.nativeGetResponse(), rimeHasPreedit);
+            }
+            return;
+        }
+        getCurrentInputConnection().commitText(candidate, candidate.length());
+        reset();
     }
 
     private void updateCandidateViewAndComposingText() {
@@ -356,6 +423,11 @@ public class SoftKeyboard extends InputMethodService
     private void handleLanguageSwitch() {
         reset();
         inputMode = inputMode == InputMode.English ? InputMode.Pinyin : InputMode.English;
+        if (inputMode == InputMode.English && RimeEngine.isStarted()) {
+            RimeEngine.nativeClearComposition();
+        }
+        rimeCandidates.clear();
+        rimeHasPreedit = false;
         updateStatusOfSwitchKey();
     }
 

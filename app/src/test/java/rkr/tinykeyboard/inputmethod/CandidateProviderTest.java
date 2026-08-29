@@ -16,24 +16,14 @@ public class CandidateProviderTest {
 
     private static class StubDictionary implements CandidateProvider.Dictionary {
         final Map<String, List<String>> english = new HashMap<>();
-        final Map<String, List<String>> pinyin = new HashMap<>();
         String lastEnglishPrefix;
-        String lastPinyinPrefix;
         int lastEnglishLimit = -1;
-        int lastPinyinLimit = -1;
 
         @Override
         public List<String> getEnglishWords(String prefix, int limit) {
             lastEnglishPrefix = prefix;
             lastEnglishLimit = limit;
             return new ArrayList<>(english.getOrDefault(prefix, new ArrayList<>()));
-        }
-
-        @Override
-        public List<String> getHanZiByPinyin(String prefix, int limit) {
-            lastPinyinPrefix = prefix;
-            lastPinyinLimit = limit;
-            return new ArrayList<>(pinyin.getOrDefault(prefix, new ArrayList<>()));
         }
     }
 
@@ -81,14 +71,8 @@ public class CandidateProviderTest {
     }
 
     @Test
-    public void pinyinMode_delegatesToHanziLookup_withoutTypedPrefixFirst() {
-        dictionary.pinyin.put("xhs", Arrays.asList("西红柿"));
-
-        List<String> candidates = provider.getCandidates("xhs", InputMode.Pinyin);
-
-        assertEquals(Arrays.asList("西红柿"), candidates);
-        assertEquals("xhs", dictionary.lastPinyinPrefix);
-        assertEquals(CandidateProvider.MAX_CANDIDATES, dictionary.lastPinyinLimit);
+    public void pinyinMode_servedByRime_notByTheCandidateProvider() {
+        assertTrue(provider.getCandidates("xhs", InputMode.Pinyin).isEmpty());
     }
 
     @Test

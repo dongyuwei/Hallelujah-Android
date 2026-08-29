@@ -28,7 +28,7 @@ import static org.junit.Assert.assertTrue;
 
 /**
  * Runs the production SQL statements from {@link DictionaryDb} against the
- * real bundled .sqlite3 assets (copied to a temp dir first, like the app does
+ * real bundled words database (copied to a temp dir first, like the app does
  * on device), so query results and dictionary contents are covered without
  * an Android device.
  */
@@ -36,28 +36,21 @@ public class DictionarySqlTest {
 
     private static Path tempDir;
     private static Connection englishDb;
-    private static Connection pinyinDb;
 
     @BeforeClass
     public static void openDatabases() throws Exception {
         tempDir = Files.createTempDirectory("hallelujah-dict-test");
         englishDb = openCopiedAsset("words_with_frequency_and_translation_and_ipa.sqlite3");
-        pinyinDb = openCopiedAsset("pinyin_data.sqlite3");
         // Same pragma DictionaryDb.openDatabase() sets on device.
         try (Statement s = englishDb.createStatement()) {
-            s.execute("PRAGMA case_sensitive_like = ON");
-        }
-        try (Statement s = pinyinDb.createStatement()) {
             s.execute("PRAGMA case_sensitive_like = ON");
         }
     }
 
     @AfterClass
     public static void closeDatabases() throws Exception {
-        for (Connection db : new Connection[]{englishDb, pinyinDb}) {
-            if (db != null) {
-                db.close();
-            }
+        if (englishDb != null) {
+            englishDb.close();
         }
         if (tempDir != null) {
             try (Stream<Path> files = Files.list(tempDir)) {
@@ -113,11 +106,6 @@ public class DictionarySqlTest {
                 new Object[]{prefix + "%"});
     }
 
-    private static List<String> hanZiByPinyin(String prefix, int limit) throws Exception {
-        return query(pinyinDb, DictionaryDb.HANZI_BY_PINYIN_SQL + " LIMIT " + limit,
-                new Object[]{prefix + "%", prefix + "%", prefix, prefix});
-    }
-
     @Test
     public void englishQuery_returnsTopWordsByFrequency() throws Exception {
         List<String> words = englishWords("pa", 19);
@@ -141,43 +129,15 @@ public class DictionarySqlTest {
     }
 
     @Test
-    public void pinyinQuery_exactFullPinyinMatchComesFirst() throws Exception {
-        List<String> hanzi = hanZiByPinyin("xihongshi", 20);
-
-        assertEquals("西红柿", hanzi.get(0));
-        assertEquals(1, hanzi.stream().filter("西红柿"::equals).count());
-    }
-
-    @Test
-    public void pinyinQuery_abbrMatchFindsTheSameWord() throws Exception {
-        assertTrue(hanZiByPinyin("xhs", 20).contains("西红柿"));
-    }
-
-    @Test
-    public void pinyinQuery_ordersByFrequency_forExactSingleSyllable() throws Exception {
-        assertEquals("怕", hanZiByPinyin("pa", 20).get(0));
-    }
-
-    @Test
-    public void pinyinQuery_respectsLimit() throws Exception {
-        List<String> hanzi = hanZiByPinyin("x", 20);
-        assertEquals(20, hanzi.size());
-        assertEquals(hanzi.size(), new ArrayList<>(hanzi).stream().distinct().count());
-    }
-
-    @Test
-    public void bundledDictionaries_matchDesktopVersions() throws Exception {
-        try (ResultSet rs = englishDb.createStatement().executeQuery("SELECT COUNT(*) FROM words");
-             ResultSet rs2 = pinyinDb.createStatement().executeQuery("SELECT COUNT(*) FROM pinyin_data")) {
+    public void bundledEnglishDictionary_matchesDesktopVersion() throws Exception {
+        try (ResultSet rs = englishDb.createStatement().executeQuery("SELECT COUNT(*) FROM words")) {
             assertTrue(rs.next());
-            assertTrue(rs2.next());
             assertTrue("words table looks wrong: " + rs.getInt(1), rs.getInt(1) >= 140000);
-            assertTrue("pinyin_data table looks wrong: " + rs2.getInt(1), rs2.getInt(1) >= 55000);
         }
     }
 
     @Test
-    public void pinyinQuery_neverReturnsEmptyHanzi() throws Exception {
-        assertFalse(hanZiByPinyin("b", 20).contains(""));
+    public void englishQuery_neverReturnsEmptyWords() throws Exception {
+        assertFalse(englishWords("b", 20).contains(""));
     }
 }

@@ -8,6 +8,18 @@ android {
         targetSdkVersion 34
         versionCode 8
         versionName "0.8"
+        ndkVersion "27.2.12479018"
+        externalNativeBuild {
+            cmake {
+                abiFilters "arm64-v8a"
+            }
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            path "src/main/jni/CMakeLists.txt"
+            version "3.22.1"
+        }
     }
     buildTypes {
         release {

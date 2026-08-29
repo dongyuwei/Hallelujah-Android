@@ -16,37 +16,31 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Read-only access to the dictionary SQLite databases shared with the macOS
- * (hallelujahIM) and Windows (Hallelujah-Windows) versions of Hallelujah:
+ * Read-only access to the English dictionary SQLite database shared with the
+ * macOS (hallelujahIM) and Windows (Hallelujah-Windows) versions of
+ * Hallelujah:
  *
  * words_with_frequency_and_translation_and_ipa.sqlite3:
  *   words(word PRIMARY KEY, frequency, translation, ipa)
- * pinyin_data.sqlite3:
- *   pinyin_data(id, hz, py, abbr, freq), indexed on py and abbr
  *
- * The databases are copied from assets into device-protected storage on first
- * run (device-protected so the directBootAware IME can also use them before
+ * The database is copied from assets into device-protected storage on first
+ * run (device-protected so the directBootAware IME can also use it before
  * unlock) and only ever queried. The SQL statements are shared with the unit
  * tests, which run them against the same asset files through JDBC.
  */
 public class DictionaryDb implements CandidateProvider.Dictionary, WordFrequencyLookup {
     // Bump when the bundled .sqlite3 assets change, so devices re-copy them.
-    private static final int DB_ASSETS_VERSION = 1;
+    private static final int DB_ASSETS_VERSION = 2;
     // SQLite's default host parameter limit is 999; stay well under it.
     private static final int SQL_VARIABLE_CHUNK = 500;
     private static final String ENGLISH_DB_ASSET = "words_with_frequency_and_translation_and_ipa.sqlite3";
-    private static final String PINYIN_DB_ASSET = "pinyin_data.sqlite3";
 
     static final String ENGLISH_WORDS_SQL =
             "SELECT word FROM words WHERE word LIKE ? ORDER BY frequency DESC";
-    static final String HANZI_BY_PINYIN_SQL =
-            "SELECT hz FROM pinyin_data WHERE py LIKE ? OR abbr LIKE ?"
-                    + " ORDER BY CASE WHEN py = ? OR abbr = ? THEN 0 ELSE 1 END, freq DESC";
 
     private static final DictionaryDb INSTANCE = new DictionaryDb();
 
     private static volatile SQLiteDatabase englishDb;
-    private static volatile SQLiteDatabase pinyinDb;
     // Vocabulary trie for the distance-3 spellcheck layer; built once on the
     // dictionary loader thread.
     private static volatile WordTrie wordTrie;
@@ -64,11 +58,9 @@ public class DictionaryDb implements CandidateProvider.Dictionary, WordFrequency
         try {
             if (prefs.getInt("db_assets_version", -1) != DB_ASSETS_VERSION) {
                 copyAssetToDatabasePath(storageContext, ENGLISH_DB_ASSET);
-                copyAssetToDatabasePath(storageContext, PINYIN_DB_ASSET);
                 prefs.edit().putInt("db_assets_version", DB_ASSETS_VERSION).apply();
             }
             englishDb = openDatabase(storageContext, ENGLISH_DB_ASSET);
-            pinyinDb = openDatabase(storageContext, PINYIN_DB_ASSET);
             buildWordTrie(englishDb);
         } catch (IOException | android.database.SQLException e) {
             System.out.println("Hallelujah failed to open dictionary database: " + e);
@@ -159,23 +151,5 @@ public class DictionaryDb implements CandidateProvider.Dictionary, WordFrequency
             }
         }
         return frequencies;
-    }
-
-    @Override
-    public List<String> getHanZiByPinyin(String prefix, int limit) {
-        if (pinyinDb == null || prefix.isEmpty()) {
-            return new ArrayList<>();
-        }
-        List<String> hanziList = new ArrayList<>();
-        Cursor cursor = pinyinDb.rawQuery(HANZI_BY_PINYIN_SQL + " LIMIT " + limit,
-                new String[]{prefix + "%", prefix + "%", prefix, prefix});
-        try {
-            while (cursor.moveToNext()) {
-                hanziList.add(cursor.getString(0));
-            }
-        } finally {
-            cursor.close();
-        }
-        return hanziList;
     }
 }

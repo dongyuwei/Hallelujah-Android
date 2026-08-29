@@ -13,11 +13,9 @@ import java.util.Set;
  */
 public class CandidateProvider {
 
-    /** Dictionary lookups backing candidate generation (backed by SQLite on device). */
+    /** Dictionary lookups backing English candidate generation (SQLite on device). */
     public interface Dictionary {
         List<String> getEnglishWords(String prefix, int limit);
-
-        List<String> getHanZiByPinyin(String prefix, int limit);
     }
 
     /** Fuzzy spelling suggestions for the English-mode fallback path. */
@@ -58,26 +56,26 @@ public class CandidateProvider {
             return candidates;
         }
         String prefix = composition.toLowerCase();
-        if (mode == InputMode.English) {
-            // The typed prefix itself is always the first candidate.
-            candidates.add(prefix);
-            List<String> matchingWords = dictionary.getEnglishWords(prefix, MAX_CANDIDATES - 1);
-            if (!matchingWords.isEmpty()) {
-                candidates.addAll(matchingWords);
-            } else {
-                // No English word matches: cedict pinyin fallback first, then
-                // the spellcheck layers (edit-distance fixes, phonetic guesses)
-                // for possible typos.
-                List<String> pinyinCandidates = pinyinMap.get(prefix);
-                if (pinyinCandidates != null) {
-                    candidates.addAll(pinyinCandidates);
-                }
-                for (SpellCheck checker : spellChecks) {
-                    candidates.addAll(checker.getSuggestions(prefix));
-                }
-            }
+        if (mode != InputMode.English) {
+            // Pinyin candidates come from librime (RimeEngine), not here.
+            return candidates;
+        }
+        // The typed prefix itself is always the first candidate.
+        candidates.add(prefix);
+        List<String> matchingWords = dictionary.getEnglishWords(prefix, MAX_CANDIDATES - 1);
+        if (!matchingWords.isEmpty()) {
+            candidates.addAll(matchingWords);
         } else {
-            candidates.addAll(dictionary.getHanZiByPinyin(prefix, MAX_CANDIDATES));
+            // No English word matches: cedict pinyin fallback first, then
+            // the spellcheck layers (edit-distance fixes, phonetic guesses)
+            // for possible typos.
+            List<String> pinyinCandidates = pinyinMap.get(prefix);
+            if (pinyinCandidates != null) {
+                candidates.addAll(pinyinCandidates);
+            }
+            for (SpellCheck checker : spellChecks) {
+                candidates.addAll(checker.getSuggestions(prefix));
+            }
         }
         return candidates;
     }

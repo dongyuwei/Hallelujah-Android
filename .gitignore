@@ -8,3 +8,6 @@
 .externalNativeBuild
 .cxx
 .zcode
+
+# librime build-time downloads
+app/src/main/jni/boost*
