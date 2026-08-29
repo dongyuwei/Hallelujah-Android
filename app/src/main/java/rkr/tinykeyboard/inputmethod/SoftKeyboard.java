@@ -111,7 +111,16 @@ public class SoftKeyboard extends InputMethodService
         View candidatesView = inflater.inflate(R.layout.candidates_view_layout, null);
 
         candidatesRecyclerView = candidatesView.findViewById(R.id.candidatesRecyclerView);
-        GridLayoutManager layoutManager = new GridLayoutManager(this, numberOfColumns());
+        GridLayoutManager layoutManager = new GridLayoutManager(this, CandidateAdapter.SPANS_PER_ROW);
+        layoutManager.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
+            @Override
+            public int getSpanSize(int position) {
+                RecyclerView.Adapter<?> adapter = candidatesRecyclerView.getAdapter();
+                return adapter instanceof CandidateAdapter
+                        ? ((CandidateAdapter) adapter).getSpanSize(position)
+                        : CandidateAdapter.NORMAL_SPAN;
+            }
+        });
         candidatesRecyclerView.setLayoutManager(layoutManager);
 
         return candidatesView;
@@ -131,10 +140,6 @@ public class SoftKeyboard extends InputMethodService
         CandidateSelectionHandler selectionHandler = new CandidateSelectionHandler(this);
         CandidateAdapter adapter = new CandidateAdapter(candidates, selectionHandler);
         candidatesRecyclerView.setAdapter(adapter);
-    }
-
-    private int numberOfColumns() {
-        return 4;
     }
 
     Context getDisplayContext() {
