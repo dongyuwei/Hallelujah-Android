@@ -22,15 +22,21 @@ public class RimeEngine {
     private static final String SHARED_DATA_DIR = "rime_shared";
     private static final String USER_DATA_DIR = "rime_user";
 
-    static {
-        System.loadLibrary("rime_jni");
-    }
-
     private static volatile boolean started;
+    private static volatile boolean libraryLoaded;
 
     public static synchronized void init(Context context) {
         if (started) {
             return;
+        }
+        if (!libraryLoaded) {
+            try {
+                System.loadLibrary("rime_jni");
+                libraryLoaded = true;
+            } catch (Throwable t) {
+                System.out.println("Hallelujah failed to load rime_jni: " + t);
+                return;
+            }
         }
         Context storageContext = context.createDeviceProtectedStorageContext();
         SharedPreferences prefs = storageContext.getSharedPreferences("rime", Context.MODE_PRIVATE);
@@ -51,8 +57,8 @@ public class RimeEngine {
             if (!started) {
                 System.out.println("Hallelujah failed to start librime");
             }
-        } catch (IOException e) {
-            System.out.println("Hallelujah failed to copy rime data: " + e);
+        } catch (Throwable t) {
+            System.out.println("Hallelujah failed to start librime: " + t);
         }
     }
 

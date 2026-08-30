@@ -77,27 +77,33 @@ public class SoftKeyboard extends InputMethodService
 
     private void loadDictionaryAsync() {
         executorService.execute(() -> {
-            DictionaryDb.init(getApplicationContext());
-            RimeEngine.init(getApplicationContext());
+            try {
+                DictionaryDb.init(getApplicationContext());
+                RimeEngine.init(getApplicationContext());
 
-            Gson gson = new Gson();
-            String pinyinJson = DictUtil.getContentFromAssets(getApplicationContext(), "cedict.json");
-            Type pinyinType = new TypeToken<Map<String, List<String>>>() {
-            }.getType();
-            pinyinMap = gson.fromJson(pinyinJson, pinyinType);
+                Gson gson = new Gson();
+                String pinyinJson = DictUtil.getContentFromAssets(getApplicationContext(), "cedict.json");
+                Type pinyinType = new TypeToken<Map<String, List<String>>>() {
+                }.getType();
+                pinyinMap = gson.fromJson(pinyinJson, pinyinType);
 
-            String phonexJson = DictUtil.getContentFromAssets(getApplicationContext(), "phonex_encoded_words.json");
-            Type phonexType = new TypeToken<Map<String, List<String>>>() {
-            }.getType();
-            SpellChecker spellChecker = new SpellChecker(gson.fromJson(phonexJson, phonexType));
+                String phonexJson = DictUtil.getContentFromAssets(getApplicationContext(), "phonex_encoded_words.json");
+                Type phonexType = new TypeToken<Map<String, List<String>>>() {
+                }.getType();
+                SpellChecker spellChecker = new SpellChecker(gson.fromJson(phonexJson, phonexType));
 
-            candidateProvider = new CandidateProvider(DictionaryDb.getInstance(), pinyinMap,
-                    new NorvigSpellChecker(DictionaryDb.getInstance()),
-                    new TrieSpellChecker(DictionaryDb.getInstance()::getWordTrie,
-                            DictionaryDb.getInstance()),
-                    spellChecker);
+                candidateProvider = new CandidateProvider(DictionaryDb.getInstance(), pinyinMap,
+                        new NorvigSpellChecker(DictionaryDb.getInstance()),
+                        new TrieSpellChecker(DictionaryDb.getInstance()::getWordTrie,
+                                DictionaryDb.getInstance()),
+                        spellChecker);
 
-            System.out.println("Hallelujah dictionary is ready now!");
+                System.out.println("Hallelujah dictionary is ready now!");
+            } catch (Throwable t) {
+                // Never let dictionary loading kill the IME process; English
+                // input keeps working and pinyin degrades gracefully.
+                System.out.println("Hallelujah dictionary load failed: " + t);
+            }
         });
     }
 
