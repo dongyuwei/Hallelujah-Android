@@ -240,7 +240,11 @@ public class SoftKeyboard extends InputMethodService
         compositionText = new StringBuilder();
         if (RimeEngine.isStarted()) {
             RimeEngine.nativeClearComposition();
-            getCurrentInputConnection().finishComposingText();
+            // The input connection may already be gone when input finishes.
+            android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
+            if (ic != null) {
+                ic.finishComposingText();
+            }
         }
         rimeCandidates.clear();
         rimeHasPreedit = false;
