@@ -2,6 +2,7 @@
 #include <jni.h>
 #include <android/log.h>
 #include <rime_api.h>
+#include <unistd.h>
 
 #define LOG_TAG "rime.hallelujah"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -50,12 +51,20 @@ Java_rkr_tinykeyboard_inputmethod_RimeEngine_nativeStartup(
   rime->set_notification_handler(notificationHandler, nullptr);
   rime->start_maintenance(fullCheck ? True : False);
 
+  // First deployment compiles the schema and dictionaries in the background;
+  // session creation only succeeds once maintenance is done.
+  int waitedMs = 0;
+  while (rime->is_maintenance_mode() && waitedMs < 120000) {
+    usleep(200 * 1000);
+    waitedMs += 200;
+  }
+
   env->ReleaseStringUTFChars(sharedDataDir, shared);
   env->ReleaseStringUTFChars(userDataDir, user);
 
   session = rime->create_session();
-  LOGI("startup done, session=%lu full_check=%d", (unsigned long) session,
-       fullCheck ? 1 : 0);
+  LOGI("startup done, session=%lu full_check=%d waited_ms=%d",
+       (unsigned long) session, fullCheck ? 1 : 0, waitedMs);
   return session ? JNI_TRUE : JNI_FALSE;
 }
 

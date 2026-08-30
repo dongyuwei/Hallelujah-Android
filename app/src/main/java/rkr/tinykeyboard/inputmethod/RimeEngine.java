@@ -96,21 +96,22 @@ public class RimeEngine {
         if (!targetDir.exists()) {
             targetDir.mkdirs();
         }
+        String prefix = assetDir + "/";
         Stack<String> dirs = new Stack<>();
         dirs.push(assetDir);
         while (!dirs.isEmpty()) {
             String dir = dirs.pop();
-            String[] children = context.getAssets().list(dir);
-            File targetSubDir = new File(targetDir, dir.substring("rime".length() + 1));
+            String relative = dir.length() > assetDir.length() ? dir.substring(prefix.length()) : "";
+            File targetSubDir = new File(targetDir, relative);
             if (!targetSubDir.exists()) {
                 targetSubDir.mkdirs();
             }
-            for (String child : children) {
+            for (String child : context.getAssets().list(dir)) {
                 String path = dir + "/" + child;
                 if (context.getAssets().list(path).length > 0) {
                     dirs.push(path);
                 } else {
-                    copyFile(context, path, new File(targetDir, path.substring("rime".length() + 1)));
+                    copyFile(context, path, new File(targetSubDir, child));
                 }
             }
         }
