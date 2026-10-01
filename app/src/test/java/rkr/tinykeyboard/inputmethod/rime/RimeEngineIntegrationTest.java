@@ -75,6 +75,8 @@ public class RimeEngineIntegrationTest {
 
         t0 = System.currentTimeMillis();
         engine.start("luna_pinyin_fluency", "朙月拼音·語句流", 10);
+        // the Android app enables simplified output; exercise the opencc path
+        engine.setOption("simplification", true);
         long tStart = System.currentTimeMillis() - t0;
         System.out.println("[rime] create: " + tCreate + " ms, start: " + tStart + " ms");
     }
@@ -110,6 +112,20 @@ public class RimeEngineIntegrationTest {
                 r.candidates.size() >= 3);
         assertTrue("first candidate should be 你好: " + r.candidates.get(0).text,
                 r.candidates.get(0).text.contains("你好"));
+    }
+
+    @Test
+    public void simplifiedOutputIsEnabled() {
+        // 朙月拼音 is traditional by default; the simplification option must
+        // convert through the bundled opencc t2s dictionaries (你好嗎 -> 你好吗)
+        RimeWasmEngine.Result r = type("nihaoma");
+        assertTrue("simplified sentence expected, got: " + r.candidates.get(0).text,
+                r.candidates.get(0).text.contains("你好吗"));
+        RimeWasmEngine.Result done = engine.processKey(" ");
+        done = engine.processKey(" ");
+        assertEquals(RimeWasmEngine.STATE_COMMITTED, done.state);
+        assertTrue("committed should be simplified: " + done.committed,
+                done.committed.contains("你好吗"));
     }
 
     @Test

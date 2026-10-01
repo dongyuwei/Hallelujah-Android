@@ -7,7 +7,7 @@
 - 英语单词自动补全；
 - 英语单词拼写纠错建议：无匹配单词时，先按 Norvig 式编辑距离（增/删/换/相邻对调一字符）查 `words` 频率表给出候选，再经词典 Trie + Levenshtein DP 剪枝搜索最多 3 个编辑距离的词（覆盖双重/三重打字错误，按距离与词频排序），最后辅以 [Phonex](https://github.com/Yomguithereal/talisman) 音近词建议（与 macOS 版 hallelujahIM 相同机制）；
 - 输入拼音（全拼），显示英语候选词列表；
-- 切换到拼音输入模式以输出汉字：由 [librime](https://github.com/rime/librime) 的 **朙月拼音·語句流**（`luna_pinyin_fluency`，整句连续输入）方案驱动，rime.wasm 来自 [my_rime](https://github.com/LibreService/my_rime)，在纯 JVM 的 WebAssembly 运行时 [endive](https://github.com/bytecodealliance/endive) 上执行（无 NDK/JNI）；空格逐段确认、再按上屏整句，数字选词，中文标点自动整句上屏，用户词库自学习；引擎启动期间先回退到内置 Google 拼音词库。
+- 切换到拼音输入模式以输出汉字：由 [librime](https://github.com/rime/librime) 的 **朙月拼音·語句流**（`luna_pinyin_fluency`，整句连续输入）方案驱动，rime.wasm 来自 [my_rime](https://github.com/LibreService/my_rime)，在纯 JVM 的 WebAssembly 运行时 [endive](https://github.com/bytecodealliance/endive) 上执行（无 NDK/JNI）；空格逐段确认、再按上屏整句，数字选词，中文标点自动整句上屏，用户词库自学习；启动时经内置 opencc 词典开启 `simplification`，输出**简体**；引擎启动期间先回退到内置 Google 拼音词库。
 
 ## 拼音模式（rime on WebAssembly）
 

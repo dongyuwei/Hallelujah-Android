@@ -166,6 +166,9 @@ public final class RimeController {
                         }
                     });
             e.start("luna_pinyin_fluency", "朙月拼音·語句流", 10);
+            // the luna family outputs traditional hanzi by default; the app
+            // targets simplified-Chinese users (opencc t2s ships in rime.data)
+            e.setOption("simplification", true);
             engine = e;
             RimeLog.w(TAG, "engine ready in " + (System.currentTimeMillis() - t0) + " ms");
             final Listener l = listener;

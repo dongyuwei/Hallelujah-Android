@@ -125,6 +125,18 @@ public final class RimeWasmEngine {
         return started;
     }
 
+    /**
+     * Sets a rime session option, e.g. "simplification" for simplified
+     * output. Must be called after {@link #start} created the session.
+     */
+    public void setOption(String option, boolean value) {
+        byte[] bytes = option.getBytes(StandardCharsets.UTF_8);
+        long ptr = instance.export("_emscripten_stack_alloc").apply(bytes.length + 1)[0];
+        instance.memory().write((int) ptr, bytes, 0, bytes.length);
+        instance.memory().writeByte((int) ptr + bytes.length, (byte) 0);
+        instance.export("set_option").apply(ptr, value ? 1 : 0);
+    }
+
     /** Feeds one key ("n", " ", "BackSpace", "Return", ...) to rime. */
     public Result processKey(String key) {
         return parseResult(callWithString("process", key));
