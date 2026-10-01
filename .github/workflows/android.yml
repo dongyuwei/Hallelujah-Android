@@ -42,14 +42,21 @@ jobs:
         name: unit-test-reports
         path: app/build/reports/tests/
 
-    - name: Build debug APK
-      run: ./gradlew assembleDebug
+    - name: Build APKs (CI version numbers)
+      # versionCode 100 + run number always exceeds any local build and
+      # increases monotonically, so devices offer in-place updates
+      run: |
+        ./gradlew assembleDebug assembleRelease \
+          -PversionCode=$((100 + GITHUB_RUN_NUMBER)) \
+          -PversionName="0.9.$GITHUB_RUN_NUMBER"
 
-    - name: Upload debug APK artifact
+    - name: Upload APK artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: app-debug
-        path: app/build/outputs/apk/debug/app-debug.apk
+        name: apks
+        path: |
+          app/build/outputs/apk/debug/app-debug.apk
+          app/build/outputs/apk/release/app-release.apk
 
     - name: Create GitHub pre-release
       if: github.event_name == 'push'
@@ -63,7 +70,9 @@ jobs:
 
         # Release asset: Hallelujah-<timestamp>-<short-SHA>-debug.apk
         STAMP="$(date '+%Y%m%d-%H%M')"
+        APK_RELEASE="Hallelujah-${STAMP}-${SHA}-release.apk"
         APK_DEBUG="Hallelujah-${STAMP}-${SHA}-debug.apk"
+        cp app/build/outputs/apk/release/app-release.apk "$APK_RELEASE"
         cp app/build/outputs/apk/debug/app-debug.apk "$APK_DEBUG"
 
         # Commit subjects since the previous release tag (excluding this
@@ -84,7 +93,7 @@ jobs:
           gh release delete "$TAG" --yes --cleanup-tag
         fi
 
-        gh release create "$TAG" "$APK_DEBUG" \
+        gh release create "$TAG" "$APK_RELEASE" "$APK_DEBUG" \
           --title "$TITLE" \
           --notes "$NOTES" \
           --prerelease

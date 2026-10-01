@@ -35,7 +35,9 @@
 
 ## 开发
 
-- 构建：`./build-debug.sh` 构建 debug APK；`./build-release.sh` 构建 release APK（R8 混淆，未签名）；
+- 构建：`./build-debug.sh` 构建 debug APK；`./build-release.sh` 构建 release APK（R8 混淆）；本地与 CI、debug 与 release 全部使用仓库内固定密钥 `keystore/hallelujah-upload.jks` 签名，签名一致即可覆盖升级，无需先卸载（注意：由旧版本升级需最后一次卸载重装以切换到新签名）；
+- CI（push 到 master）自动以 `versionCode = 100 + run number`、`versionName = 0.9.<run number>` 构建 debug 与 release 两个 APK 并发布 pre-release，版本号单调递增便于设备端直接更新；
+- 真机测 debug 包请用 `scripts/install-debug.sh`：安装后自动执行 `cmd package compile -m speed` 强制 AOT——debuggable 包被系统后台 dexopt 跳过，而 rime 引擎没有 AOT 时每键需数百毫秒；
 - 单元测试：`./unit-test.sh`（等价于 `./gradlew testDebugUnitTest`，可追加过滤参数，如 `./unit-test.sh --tests "*DictionarySqlTest*"`）。覆盖两部分：候选词生成/排序/去重逻辑（`CandidateProviderTest`），以及用 [sqlite-jdbc](https://github.com/xerial/sqlite-jdbc) 直接对打包的 `.sqlite3` 词典运行与线上一致的 SQL 查询（`DictionarySqlTest`，验证词库内容与查询结果顺序）；
 - CI：GitHub Actions（`.github/workflows/android.yml`）在代码变更时自动运行单元测试并构建 APK（`*.md` 等文档改动不触发），push 到 master 后自动创建 `build-<短SHA>` pre-release（标题含构建时间与短 SHA，说明中列出自上个 release 以来的提交记录），并附上 debug/release APK。
 
