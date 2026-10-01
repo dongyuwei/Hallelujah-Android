@@ -10,12 +10,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-final class TestAssets {
+public final class TestAssets {
     private TestAssets() {
     }
 
     /** Test workers may run with either the module dir or the repo root as working dir. */
-    static File asset(String name) {
+    public static File asset(String name) {
         Path workingDir = Paths.get(System.getProperty("user.dir"));
         Path candidate = workingDir.resolve("src/main/assets").resolve(name);
         if (!Files.exists(candidate)) {

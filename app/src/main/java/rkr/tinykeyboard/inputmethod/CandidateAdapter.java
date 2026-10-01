@@ -62,7 +62,7 @@ public class CandidateAdapter extends RecyclerView.Adapter<CandidateAdapter.View
         // Handle item click
         holder.itemView.setOnClickListener(v -> {
             if (listener != null) {
-                listener.onCandidateSelected(candidate);
+                listener.onCandidateSelected(position, candidate);
             }
         });
     }
@@ -82,6 +82,6 @@ public class CandidateAdapter extends RecyclerView.Adapter<CandidateAdapter.View
     }
 
     public interface CandidateSelectionListener {
-        void onCandidateSelected(String candidate);
+        void onCandidateSelected(int index, String candidate);
     }
 }

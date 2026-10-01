@@ -9,8 +9,7 @@ public class CandidateSelectionHandler implements CandidateAdapter.CandidateSele
     }
 
     @Override
-    public void onCandidateSelected(String candidate) {
-        keyboard.getCurrentInputConnection().commitText(candidate, candidate.length());
-        keyboard.reset();
+    public void onCandidateSelected(int index, String candidate) {
+        keyboard.onCandidateSelected(index, candidate);
     }
 }

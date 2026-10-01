@@ -1,0 +1,15 @@
+0 784 /usr/share/opencc/HKVariantsFull.txt
+784 46094 /usr/share/opencc/STCharacters.ocd2
+46094 971075 /usr/share/opencc/STPhrases.ocd2
+971075 1017201 /usr/share/opencc/TSCharacters.ocd2
+1017201 1026977 /usr/share/opencc/TSPhrases.ocd2
+1026977 1031572 /usr/share/opencc/TWVariants.ocd2
+1031572 1031775 /usr/share/opencc/emoji.json
+1031775 1154913 /usr/share/opencc/emoji_word.txt
+1154913 1155319 /usr/share/opencc/s2t.json
+1155319 1155640 /usr/share/opencc/t2hkf.json
+1155640 1156046 /usr/share/opencc/t2s.json
+1156046 1156348 /usr/share/opencc/t2tw.json
+1156348 1161721 /usr/share/rime-data/build/default.yaml
+1161721 1161905 /usr/share/rime-data/lua/date_translator.lua
+1161905 1161905 /usr/share/rime-data/rime.lua

@@ -7,7 +7,22 @@
 - 英语单词自动补全；
 - 英语单词拼写纠错建议：无匹配单词时，先按 Norvig 式编辑距离（增/删/换/相邻对调一字符）查 `words` 频率表给出候选，再经词典 Trie + Levenshtein DP 剪枝搜索最多 3 个编辑距离的词（覆盖双重/三重打字错误，按距离与词频排序），最后辅以 [Phonex](https://github.com/Yomguithereal/talisman) 音近词建议（与 macOS 版 hallelujahIM 相同机制）；
 - 输入拼音（全拼），显示英语候选词列表；
-- 切换到拼音输入模式（使用Google 拼音词库）以输出汉字；
+- 切换到拼音输入模式以输出汉字：由 [librime](https://github.com/rime/librime)（明月拼音方案）驱动，rime.wasm 来自 [my_rime](https://github.com/LibreService/my_rime)，在纯 JVM 的 WebAssembly 运行时 [endive](https://github.com/bytecodealliance/endive) 上执行（无 NDK/JNI），整句组合、候选翻页、数字选词、用户词库自学习均可用；引擎启动期间先回退到内置 Google 拼音词库。
+
+## 拼音模式（rime on WebAssembly）
+
+拼音模式的引擎与数据来自开源项目 [LibreService/my_rime](https://github.com/LibreService/my_rime)（librime 的 WebAssembly 发行版，AGPL-3.0），感谢其作者的工作；在线体验版：<https://my-rime.vercel.app/>。
+
+`app/src/main/java/rkr/tinykeyboard/inputmethod/rime/` 下实现了一个 Java 版的 Emscripten 宿主环境，让 [my_rime](https://github.com/LibreService/my_rime) 的 `rime.wasm`（`-fexceptions` + JS 文件系统构建）无需浏览器即可在 endive 上运行：
+
+- `WasmVfs`：musl `__syscall_*` + WASI 文件操作，落到设备真实文件（词库与用户数据天然持久化）；
+- `EmscriptenEh`：`__cxa_*`/`invoke_*` 的 C++ 异常与 longjmp 模拟（对照同版本 rime.js 逐函数移植）；
+- `EmscriptenHost`：mmap（词库内存映射）、堆增长、时间、EM_ASM 等 113 个导入函数的总注册表；
+- `RimeDataPack`：解包 Emscripten `--preload-file` 数据包（`rime.data` → opencc 字典、预编译 `default.yaml` 等）；
+- `RimeWasmEngine`：init/set_ime/process 调用序列与 JSON 协议解析；
+- `RimeController`：Android 侧资产安装（版本化、directBoot 存储适配）与主线程回调。
+
+这套宿主层是纯 Java、不依赖 Android API，`RimeEngineIntegrationTest` 在桌面 JVM 上直接驱动真实 `rime.wasm` 完成「nihao → 你好」等端到端验收。更新 [my_rime](https://github.com/LibreService/my_rime) 产物时运行 `scripts/copy-rime-assets.sh ../my-rime-dist`（会同时从 rime.js 提取数据包文件清单）并提升 `RimeController.RIME_ASSETS_VERSION`。
 
 词典数据与 macOS 版 [hallelujahIM](https://github.com/dongyuwei/hallelujahIM)、Windows 版 [Hallelujah-Windows](https://github.com/dongyuwei/Hallelujah-Windows) 共用同一套 SQLite 数据库：
 - `words_with_frequency_and_translation_and_ipa.sqlite3`：英语单词频率表（`words` 表），首次启动时从 assets 复制到设备保护存储后只读查询；

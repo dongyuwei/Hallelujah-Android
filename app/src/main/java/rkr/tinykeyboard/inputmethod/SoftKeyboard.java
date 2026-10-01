@@ -34,6 +34,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
+import rkr.tinykeyboard.inputmethod.rime.RimeController;
+import rkr.tinykeyboard.inputmethod.rime.RimeWasmEngine;
+
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -43,7 +46,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class SoftKeyboard extends InputMethodService
-        implements KeyboardView.OnKeyboardActionListener {
+        implements KeyboardView.OnKeyboardActionListener, RimeController.Listener {
 
     private KeyboardView mInputView;
     private RecyclerView candidatesRecyclerView;
@@ -63,12 +66,43 @@ public class SoftKeyboard extends InputMethodService
     private volatile CandidateProvider candidateProvider;
     private InputMode inputMode = InputMode.English;
 
+    private RimeController rimeController;
+    /** True while the rime engine holds a composition for this input field. */
+    private boolean pinyinComposing;
+
+    /** Keysym names for punctuation fed to the rime engine (from the my_rime key map). */
+    private static final Map<Character, String> PUNCTUATION_KEYS;
+    static {
+        Map<Character, String> m = new HashMap<>();
+        m.put(',', "comma");             m.put('.', "period");
+        m.put('?', "question");          m.put('!', "exclam");
+        m.put('\'', "apostrophe");       m.put(';', "semicolon");
+        m.put(':', "colon");             m.put('-', "minus");
+        m.put('"', "quotedbl");          m.put('/', "slash");
+        m.put('\\', "backslash");        m.put('@', "at");
+        m.put('#', "numbersign");        m.put('$', "dollar");
+        m.put('%', "percent");           m.put('&', "ampersand");
+        m.put('*', "asterisk");          m.put('(', "parenleft");
+        m.put(')', "parenright");        m.put('+', "plus");
+        m.put('=', "equal");             m.put('<', "less");
+        m.put('>', "greater");           m.put('[', "bracketleft");
+        m.put(']', "bracketright");      m.put('{', "braceleft");
+        m.put('}', "braceright");        m.put('~', "asciitilde");
+        m.put('`', "quoteleft");         m.put('_', "underscore");
+        m.put('^', "asciicircum");       m.put('|', "bar");
+        PUNCTUATION_KEYS = m;
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
         if (pinyinMap.isEmpty()) {
             executorService = Executors.newSingleThreadExecutor();
             loadDictionaryAsync();
+        }
+        if (rimeController == null) {
+            rimeController = RimeController.create(this, executorService);
+            rimeController.setListener(this);
         }
     }
 
@@ -100,6 +134,10 @@ public class SoftKeyboard extends InputMethodService
     @Override
     public void onDestroy() {
         super.onDestroy();
+        if (rimeController != null) {
+            rimeController.destroy();
+            rimeController = null;
+        }
         if (executorService != null) {
             executorService.shutdownNow();
         }
@@ -228,6 +266,7 @@ public class SoftKeyboard extends InputMethodService
     public void onFinishInput() {
         super.onFinishInput();
         compositionText = new StringBuilder();
+        abandonPinyinComposition();
 
         mCurKeyboard = mQwertyKeyboard;
         if (mInputView != null) {
@@ -263,8 +302,12 @@ public class SoftKeyboard extends InputMethodService
 
     public void onKey(int primaryCode, int[] keyCodes) {
         if (primaryCode == Keyboard.KEYCODE_DONE) {
-            commitInput();
-            keyDownUp(KeyEvent.KEYCODE_ENTER);
+            if (pinyinComposing && rimeReady()) {
+                rimeController.processKey("{Return}", (char) 0);
+            } else {
+                commitInput();
+                keyDownUp(KeyEvent.KEYCODE_ENTER);
+            }
         } else if (primaryCode == Keyboard.KEYCODE_DELETE) {
             handleBackspace();
         } else if (primaryCode == Keyboard.KEYCODE_SHIFT) {
@@ -288,6 +331,10 @@ public class SoftKeyboard extends InputMethodService
     }
 
     private void handleBackspace() {
+        if (pinyinComposing && rimeReady()) {
+            rimeController.processKey("{BackSpace}", (char) 0);
+            return;
+        }
         keyDownUp(KeyEvent.KEYCODE_DEL);
         updateShiftKeyState(getCurrentInputEditorInfo());
 
@@ -328,6 +375,13 @@ public class SoftKeyboard extends InputMethodService
     }
 
     private void handleCharacter(int primaryCode) {
+        if (useRimePinyin()) {
+            String key = rimeKeyFor(primaryCode);
+            if (key != null) {
+                rimeController.processKey(key, Character.toLowerCase((char) primaryCode));
+                return;
+            }
+        }
         if (isInputViewShown()) {
             if (mInputView.isShifted()) {
                 primaryCode = Character.toUpperCase(primaryCode);
@@ -343,6 +397,110 @@ public class SoftKeyboard extends InputMethodService
         updateShiftKeyState(getCurrentInputEditorInfo());
     }
 
+    private boolean rimeReady() {
+        return rimeController != null && rimeController.isReady();
+    }
+
+    /**
+     * Route keys to the rime engine once it is ready and no legacy-style
+     * composition is in flight (the cedict fallback keeps serving keys typed
+     * while the engine was still booting).
+     */
+    private boolean useRimePinyin() {
+        return inputMode == InputMode.Pinyin && rimeReady() && compositionText.length() == 0;
+    }
+
+    /**
+     * Maps a primary key code to the my_rime key format: bare a-z0-9 and
+     * space, "{keysym}" for punctuation. Returns null for keys the engine
+     * should not see.
+     */
+    private static String rimeKeyFor(int primaryCode) {
+        char ch = Character.toLowerCase((char) primaryCode);
+        if ((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == ' ') {
+            return String.valueOf(ch);
+        }
+        String keysym = PUNCTUATION_KEYS.get(ch);
+        return keysym == null ? null : "{" + keysym + "}";
+    }
+
+    // ------------------------------------------------------------------
+    // rime engine callbacks (main thread)
+    // ------------------------------------------------------------------
+
+    @Override
+    public void onRimeReady() {
+        // nothing to do; the next keystroke in Pinyin mode goes to the engine
+    }
+
+    @Override
+    public void onRimeResult(RimeWasmEngine.Result result, char passthroughChar) {
+        // Stale results after switching back to English are dropped; the
+        // composition was already finalized by abandonPinyinComposition().
+        if (inputMode != InputMode.Pinyin || getCurrentInputConnection() == null) {
+            return;
+        }
+        switch (result.state) {
+            case RimeWasmEngine.STATE_COMMITTED:
+                if (result.committed != null && !result.committed.isEmpty()) {
+                    getCurrentInputConnection().commitText(result.committed, 1);
+                }
+                pinyinComposing = false;
+                clearPinyinUi();
+                break;
+            case RimeWasmEngine.STATE_ACCEPTED:
+                if (result.committed != null && !result.committed.isEmpty()) {
+                    getCurrentInputConnection().commitText(result.committed, 1);
+                }
+                getCurrentInputConnection().setComposingText(result.preedit(), 1);
+                pinyinComposing = !result.preedit().isEmpty();
+                List<String> texts = new ArrayList<>(result.candidates.size());
+                for (RimeWasmEngine.Candidate c : result.candidates) {
+                    texts.add(c.text);
+                }
+                updateCandidatesList(texts);
+                break;
+            case RimeWasmEngine.STATE_REJECTED:
+                getCurrentInputConnection().setComposingText("", 0);
+                getCurrentInputConnection().finishComposingText();
+                pinyinComposing = false;
+                clearPinyinUi();
+                break;
+            default: // UNHANDLED: commit the raw character, like the my_rime editor
+                if (passthroughChar != 0) {
+                    getCurrentInputConnection().commitText(
+                            String.valueOf(passthroughChar), 1);
+                }
+                break;
+        }
+    }
+
+    /** A candidate was tapped; rime compositions select by page index. */
+    public void onCandidateSelected(int index, String candidate) {
+        if (pinyinComposing && rimeReady()) {
+            rimeController.selectCandidate(index);
+        } else {
+            getCurrentInputConnection().commitText(candidate, candidate.length());
+            reset();
+        }
+    }
+
+    private void clearPinyinUi() {
+        getCurrentInputConnection().finishComposingText();
+        updateCandidatesList(new ArrayList<>());
+    }
+
+    /** Drops any live rime composition (mode switch, input finished, ...). */
+    private void abandonPinyinComposition() {
+        if (pinyinComposing && rimeReady()) {
+            rimeController.processKey("{Escape}", (char) 0);
+        }
+        if (pinyinComposing && getCurrentInputConnection() != null) {
+            getCurrentInputConnection().finishComposingText();
+        }
+        pinyinComposing = false;
+    }
+
     public void reset() {
         compositionText = new StringBuilder();
         updateCandidateViewAndComposingText();
@@ -354,6 +512,7 @@ public class SoftKeyboard extends InputMethodService
     }
 
     private void handleLanguageSwitch() {
+        abandonPinyinComposition();
         reset();
         inputMode = inputMode == InputMode.English ? InputMode.Pinyin : InputMode.English;
         updateStatusOfSwitchKey();

@@ -4,7 +4,7 @@ android {
     defaultConfig {
         applicationId "rkr.tinykeyboard.inputmethod"
         compileSdk 34
-        minSdkVersion 24
+        minSdkVersion 28
         targetSdkVersion 34
         versionCode 8
         versionName "0.8"
@@ -20,6 +20,13 @@ android {
     }
     namespace 'rkr.tinykeyboard.inputmethod'
 
+    packagingOptions {
+        // run.endive:runtime and run.endive:wasm both ship these
+        pickFirst 'THIRD-PARTY.txt'
+        pickFirst 'logging.properties'
+        exclude 'META-INF/jpms.args'
+    }
+
     testOptions {
         unitTests.all {
             testLogging {
@@ -33,6 +40,9 @@ android {
 dependencies {
     implementation 'com.google.code.gson:gson:2.8.5'
     implementation 'androidx.recyclerview:recyclerview:1.2.1'
+    // Pure-JVM WebAssembly runtime for the rime engine (app/src/main/assets/rime).
+    implementation 'run.endive:runtime:1.1.0'
+    implementation 'run.endive:wasm:1.1.0'
 
     testImplementation 'junit:junit:4.13.2'
     // Runs the real dictionary SQL against the bundled .sqlite3 assets on the JVM.
