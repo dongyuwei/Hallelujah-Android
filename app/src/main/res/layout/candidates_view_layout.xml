@@ -3,4 +3,5 @@
     android:id="@+id/candidatesRecyclerView"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:background="@color/keyboard_bar_bg"
     android:padding="4dp"/>

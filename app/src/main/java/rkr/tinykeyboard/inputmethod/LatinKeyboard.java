@@ -84,8 +84,16 @@ public class LatinKeyboard extends Keyboard {
                 mEnterKey.label = res.getText(R.string.label_send_key);
                 break;
             default:
-                mEnterKey.label = res.getString(R.string.enter);
+                // no action label: let the view draw the return-key icon
+                mEnterKey.label = null;
                 break;
+        }
+    }
+
+    /** Language indicator drawn on the space bar, like fcitx5-android. */
+    void setSpaceLanguageLabel(CharSequence label) {
+        if (mSpaceKey != null) {
+            mSpaceKey.label = label;
         }
     }
 }

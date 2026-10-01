@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Pixel Dark palette ported from fcitx5-android's ThemePreset.PixelDark
+  (https://github.com/fcitx5-android/fcitx5-android, LGPL-2.1-or-later).
+-->
+<resources>
+    <!-- keyboard surface -->
+    <color name="keyboard_bg">#ff2d2d2d</color>
+    <!-- candidates bar surface -->
+    <color name="keyboard_bar_bg">#ff373737</color>
+    <!-- letter keys -->
+    <color name="key_bg_normal">#ff464646</color>
+    <!-- shift / backspace / symbol-switch / language keys -->
+    <color name="key_bg_alt">#ff373737</color>
+    <!-- return key -->
+    <color name="key_bg_accent">#ff5e97f6</color>
+    <!-- space bar -->
+    <color name="key_bg_space">#ff4a4a4a</color>
+    <!-- ~20% white overlay on top of the base color, like keyPressHighlightColor -->
+    <color name="key_bg_normal_pressed">#ff6b6b6b</color>
+    <color name="key_bg_alt_pressed">#ff5f5f5f</color>
+    <color name="key_bg_accent_pressed">#ff7ea8f9</color>
+    <color name="key_bg_space_pressed">#ff6b6b6b</color>
+    <!-- shift engaged -->
+    <color name="key_bg_alt_checked">#ff555555</color>
+    <color name="key_text">#fffafafa</color>
+    <color name="key_text_secondary">#ffacacac</color>
+    <color name="key_text_accent">#ffffffff</color>
+</resources>

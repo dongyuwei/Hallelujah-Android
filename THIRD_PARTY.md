@@ -25,6 +25,14 @@ The WebAssembly runtime executing rime.wasm on the JVM/ART:
 [bytecodealliance/endive](https://github.com/bytecodealliance/endive)
 (`run.endive:runtime`, `run.endive:wasm`, Apache-2.0).
 
+## fcitx5-android (LGPL-2.1-or-later)
+
+The keyboard's Pixel Dark theme (color palette, borderless 4dp-rounded key
+shape, row structure) is ported from
+[fcitx5-android](https://github.com/fcitx5-android/fcitx5-android)'s
+ThemePreset.PixelDark and Material layout (LGPL-2.1-or-later). Special-key
+icons use Material Symbols (Apache-2.0).
+
 ## Other components
 
 - Gson (Apache-2.0) — JSON parsing of the rime engine protocol

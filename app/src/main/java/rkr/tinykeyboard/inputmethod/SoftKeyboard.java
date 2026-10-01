@@ -210,6 +210,7 @@ public class SoftKeyboard extends InputMethodService
         mQwertyKeyboard = new LatinKeyboard(displayContext, R.xml.qwerty);
         mSymbolsKeyboard = new LatinKeyboard(displayContext, R.xml.symbols);
         mSymbolsShiftedKeyboard = new LatinKeyboard(displayContext, R.xml.symbols_shift);
+        updateStatusOfSwitchKey();
     }
 
     @Override
@@ -519,19 +520,20 @@ public class SoftKeyboard extends InputMethodService
     }
 
     private void updateStatusOfSwitchKey() {
-        List<Keyboard.Key> keys = mQwertyKeyboard.getKeys();
-        Keyboard.Key switchKey = keys.stream()
-                .filter(key -> key.codes != null && key.codes.length > 0 && key.codes[0] == LatinKeyboard.KEYCODE_LANGUAGE_SWITCH)
-                .findFirst()
-                .get();
-
-        if (inputMode == InputMode.Pinyin) {
-            switchKey.label = "\uD83C\uDF10中文";
-        } else {
-            switchKey.label = "\uD83C\uDF10En";
+        // like fcitx5-android, the space bar carries the language indicator
+        CharSequence spaceLabel = inputMode == InputMode.Pinyin ? "中文" : "EN";
+        if (mQwertyKeyboard != null) {
+            mQwertyKeyboard.setSpaceLanguageLabel(spaceLabel);
         }
-        // Redraw the keyboard with updated labels
-        mInputView.invalidateAllKeys();
+        if (mSymbolsKeyboard != null) {
+            mSymbolsKeyboard.setSpaceLanguageLabel(spaceLabel);
+        }
+        if (mSymbolsShiftedKeyboard != null) {
+            mSymbolsShiftedKeyboard.setSpaceLanguageLabel(spaceLabel);
+        }
+        if (mInputView != null) {
+            mInputView.invalidateAllKeys();
+        }
     }
 
     private void checkToggleCapsLock() {

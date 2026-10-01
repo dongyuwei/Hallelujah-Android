@@ -22,6 +22,10 @@
     <dimen name="key_height">50dp</dimen>
     <dimen name="key_width">10%p</dimen>
     <dimen name="key_width_action">15%p</dimen>
-    <dimen name="key_width_space">35%p</dimen>
-    <dimen name="key_text_size">18dp</dimen>
+    <dimen name="key_width_space">40%p</dimen>
+    <dimen name="key_text_size">21dp</dimen>
+    <!-- fcitx5-android Pixel Dark key shape: 4dp radius, 3dp/7dp key margins -->
+    <dimen name="key_bg_radius">4dp</dimen>
+    <dimen name="key_bg_margin_h">3dp</dimen>
+    <dimen name="key_bg_margin_v">3.5dp</dimen>
 </resources>
