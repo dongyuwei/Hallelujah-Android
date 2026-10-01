@@ -1,0 +1,9 @@
+# AOT-compile the rime engine hot paths on first run: the wasm-compiled
+# machine (RimeCompiled*), the endive runtime dispatch/memory internals and
+# our host layer. Without this, release builds JIT these classes lazily and
+# the first pinyin keystrokes cost hundreds of ms each.
+HSPLrkr/tinykeyboard/inputmethod/rime/RimeCompiled**;->**(**)**
+HSPLrkr/tinykeyboard/inputmethod/rime/**;->**(**)**
+HSPLrun/endive/runtime/**;->**(**)**
+Lrkr/tinykeyboard/inputmethod/rime/RimeCompiled**;
+Lrkr/tinykeyboard/inputmethod/rime/SoftKeyboard;

@@ -125,8 +125,10 @@ public class RimeController {
                 watchdog.setDaemon(true);
                 watchdog.start();
                 try {
+                    long t0 = System.currentTimeMillis();
                     result = e.processKey(key);
-                    RimeLog.w(TAG, "processKey(" + key + ") state=" + result.state);
+                    RimeLog.w(TAG, "processKey(" + key + ") state=" + result.state
+                            + " in " + (System.currentTimeMillis() - t0) + "ms");
                 } catch (Throwable ex) {
                     // never leave a keypress dead: surface the failure and let
                     // the raw character through so typing still works

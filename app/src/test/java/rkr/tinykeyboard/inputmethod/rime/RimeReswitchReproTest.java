@@ -55,6 +55,27 @@ public class RimeReswitchReproTest {
         }
     }
 
+    @Test
+    public void hostActivityPerKey() {
+        // warm up: table/prism lazy-load happens on first keys
+        type("nihao");
+        engine.processKey(" ");
+        engine.processKey(" ");
+        // measure a steady-state key
+        for (int i = 0; i < 3; i++) {
+            long stdio0 = engine.vfsForTest().stdioBytes;
+            long lines0 = engine.vfsForTest().stdioLines;
+            long t0 = System.nanoTime();
+            type("m");
+            long ms = (System.nanoTime() - t0) / 1_000_000;
+            System.out.println("PERF key=m " + ms + "ms stdioBytes+"
+                    + (engine.vfsForTest().stdioBytes - stdio0)
+                    + " stdioLines+" + (engine.vfsForTest().stdioLines - lines0));
+            engine.processKey("{BackSpace}");
+        }
+        engine.processKey("{Escape}");
+    }
+
     /** case 1: 组合中切走 → Escape → 再切回 */
     @Test
     public void reswitchAfterAbandoningMidComposition() {

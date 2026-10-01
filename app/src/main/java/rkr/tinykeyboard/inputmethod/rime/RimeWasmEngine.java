@@ -134,6 +134,11 @@ public final class RimeWasmEngine {
         return started;
     }
 
+    /** host-layer diagnostics (stdio counters) */
+    public WasmVfs vfsForTest() {
+        return vfs;
+    }
+
     /**
      * Sets a rime session option, e.g. "simplification" for simplified
      * output. Must be called after {@link #start} created the session.

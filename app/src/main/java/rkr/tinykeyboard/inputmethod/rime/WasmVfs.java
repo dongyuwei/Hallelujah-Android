@@ -50,6 +50,11 @@ public final class WasmVfs {
         final StringBuilder stdioBuffer = new StringBuilder();
     }
 
+    // host-activity counters (performance diagnostics)
+    public volatile long stdioBytes;
+    public volatile long stdioLines;
+    public volatile long syscallCount;
+
     private final File root;
     private final Map<Integer, Fd> fds = new HashMap<>();
     private String cwd = "/";
@@ -427,16 +432,18 @@ public final class WasmVfs {
         for (long i = 0; i < iovcnt; i++) {
             long ptr = Integer.toUnsignedLong(mem.readInt((int) (iov + i * 8)));
             int len = mem.readInt((int) (iov + i * 8 + 4));
+            total += len;
+            stdioBytes += len;
             for (int j = 0; j < len; j++) {
                 int b = mem.read((int) (ptr + j)) & 0xff;
                 if (b == '\n') {
+                    stdioLines++;
                     log.log(TAG + ".stdio", f.stdioBuffer.toString(), null);
                     f.stdioBuffer.setLength(0);
                 } else {
                     f.stdioBuffer.append((char) b);
                 }
             }
-            total += len;
         }
         return total;
     }

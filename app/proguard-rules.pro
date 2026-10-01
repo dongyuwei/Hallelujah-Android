@@ -9,6 +9,15 @@
 # cannot statically see; keep it intact rather than rely on consumer rules.
 -keep class run.endive.** { *; }
 
+# Gson reflects on generic signatures (TypeToken anonymous subclasses):
+# without these the dictionary loader crashes with "Missing type parameter"
+-keepattributes Signature
+-keep class com.google.gson.reflect.TypeToken { *; }
+-keep class * extends com.google.gson.reflect.TypeToken
+
+# the IME itself is small; keep names so stack traces stay readable
+-keep class rkr.tinykeyboard.inputmethod.** { *; }
+
 # If you keep the line number information, uncomment the
 # following line to hide the original source file name.
 #-renamesourcefileattribute SourceFile
