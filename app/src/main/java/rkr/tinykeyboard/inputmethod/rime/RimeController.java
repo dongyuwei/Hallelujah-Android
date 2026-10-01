@@ -3,7 +3,6 @@ package rkr.tinykeyboard.inputmethod.rime;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Handler;
-import android.util.Log;
 import android.os.Looper;
 import android.widget.Toast;
 
@@ -20,7 +19,7 @@ import java.util.concurrent.Executors;
  * engine on its own background thread, and delivers results back on the main
  * thread.
  */
-public final class RimeController {
+public class RimeController {
 
     private static final String TAG = "HallelujahRime";
 
@@ -43,7 +42,7 @@ public final class RimeController {
     private volatile boolean initFailed;
     private volatile Listener listener;
 
-    private RimeController(ExecutorService engineExecutor) {
+    protected RimeController(ExecutorService engineExecutor) {
         this.engineExecutor = engineExecutor;
     }
 
@@ -51,11 +50,10 @@ public final class RimeController {
         RimeLog.setLogger(new RimeLog.Logger() {
             @Override
             public void log(String tag, String message, Throwable error) {
-                if (error == null) {
-                    Log.d(TAG, tag + " " + message);
-                } else {
-                    Log.w(TAG, tag + " " + message, error);
-                }
+                // System.out shows up in logcat as "System.out" and is visible
+                // in Robolectric output too, which Log.d is not
+                System.out.println(TAG + "/" + tag + ": " + message
+                        + (error == null ? "" : " " + error));
             }
         });
         // dedicated single thread: the engine is internally single-threaded
@@ -95,7 +93,9 @@ public final class RimeController {
             public void run() {
                 RimeWasmEngine.Result result;
                 try {
+                    RimeLog.w(TAG, "processKey(" + key + ") start on " + Thread.currentThread().getName());
                     result = e.processKey(key);
+                    RimeLog.w(TAG, "processKey(" + key + ") state=" + result.state);
                 } catch (Throwable ex) {
                     // never leave a keypress dead: surface the failure and let
                     // the raw character through so typing still works

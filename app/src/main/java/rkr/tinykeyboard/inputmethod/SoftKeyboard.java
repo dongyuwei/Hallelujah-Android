@@ -36,6 +36,7 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
 import rkr.tinykeyboard.inputmethod.rime.RimeController;
+import rkr.tinykeyboard.inputmethod.rime.RimeLog;
 import rkr.tinykeyboard.inputmethod.rime.RimeWasmEngine;
 
 import java.lang.reflect.Type;
@@ -71,7 +72,7 @@ public class SoftKeyboard extends InputMethodService
     private volatile CandidateProvider candidateProvider;
     private InputMode inputMode = InputMode.English;
 
-    private RimeController rimeController;
+    RimeController rimeController;
     /** True while the rime engine holds a composition for this input field. */
     private boolean pinyinComposing;
 
@@ -177,6 +178,11 @@ public class SoftKeyboard extends InputMethodService
         currentCandidates = candidates;
         collapseExpandedCandidates();
         setCandidatesViewShown(!candidates.isEmpty());
+        if (candidateStrip == null) {
+            // setCandidatesViewShown(false) does not create the candidates
+            // view; nothing to draw yet (next shown call recreates the strip)
+            return;
+        }
         CandidateSelectionHandler selectionHandler = new CandidateSelectionHandler(this);
         candidateStrip.setAdapter(new CandidateStripAdapter(candidates, selectionHandler));
     }
@@ -457,6 +463,15 @@ public class SoftKeyboard extends InputMethodService
      * composition is in flight (the cedict fallback keeps serving keys typed
      * while the engine was still booting).
      */
+    // exposed for the Robolectric state-machine test
+    boolean isPinyinModeForTest() {
+        return inputMode == InputMode.Pinyin;
+    }
+
+    boolean isRimeReadyForTest() {
+        return rimeReady();
+    }
+
     private boolean useRimePinyin() {
         return inputMode == InputMode.Pinyin && rimeReady() && compositionText.length() == 0;
     }
@@ -489,6 +504,8 @@ public class SoftKeyboard extends InputMethodService
         // Stale results after switching back to English are dropped; the
         // composition was already finalized by abandonPinyinComposition().
         if (inputMode != InputMode.Pinyin || getCurrentInputConnection() == null) {
+            RimeLog.w("RimeResult", "result dropped (mode=" + inputMode
+                    + ", ic=" + (getCurrentInputConnection() != null) + ")");
             return;
         }
         switch (result.state) {

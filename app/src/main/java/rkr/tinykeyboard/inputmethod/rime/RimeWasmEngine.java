@@ -37,7 +37,7 @@ public final class RimeWasmEngine {
         public final String text;
         public final String comment;
 
-        Candidate(String text, String comment) {
+        public Candidate(String text, String comment) {
             this.text = text;
             this.comment = comment;
         }

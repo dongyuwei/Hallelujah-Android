@@ -31,10 +31,15 @@ android {
     }
 
     testOptions {
-        unitTests.all {
-            testLogging {
-                events 'passed', 'failed'
-                showStandardStreams true
+        unitTests {
+            includeAndroidResources = true
+            all {
+                // the wasm engine tests hold a large heap for rime's memory
+                maxHeapSize = "3g"
+                testLogging {
+                    events 'passed', 'failed'
+                    showStandardStreams true
+                }
             }
         }
     }
@@ -50,4 +55,6 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     // Runs the real dictionary SQL against the bundled .sqlite3 assets on the JVM.
     testImplementation 'org.xerial:sqlite-jdbc:3.45.3.0'
+    // Instantiates the real SoftKeyboard to test the pinyin mode-switch state machine.
+    testImplementation 'org.robolectric:robolectric:4.11.1'
 }
