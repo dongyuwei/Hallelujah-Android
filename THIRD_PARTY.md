@@ -6,7 +6,7 @@ The Pinyin input mode embeds the following AGPL-3.0 licensed components from
 [LibreService/my_rime](https://github.com/LibreService/my_rime) (built on
 [rime/librime](https://github.com/rime/librime) and the Rime schema/data
 ecosystem, including [opencc](https://github.com/BYVoid/OpenCC) dictionaries
-and the 朏月拼音/luna_pinyin schema):
+and the 朙月拼音·語句流/luna_pinyin_fluency schema):
 
 - `app/src/main/assets/rime/rime.wasm` — librime compiled to WebAssembly
 - `app/src/main/assets/rime/rime.data` — Emscripten preload pack (opencc

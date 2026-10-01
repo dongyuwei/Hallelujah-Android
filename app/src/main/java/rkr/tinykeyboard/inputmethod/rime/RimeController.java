@@ -165,7 +165,7 @@ public final class RimeController {
                             RimeLog.w(TAG, "deploy status: " + status);
                         }
                     });
-            e.start("luna_pinyin", "朏月拼音", 10);
+            e.start("luna_pinyin_fluency", "朙月拼音·語句流", 10);
             engine = e;
             RimeLog.w(TAG, "engine ready in " + (System.currentTimeMillis() - t0) + " ms");
             final Listener l = listener;
