@@ -75,6 +75,20 @@ public class SoftKeyboard extends InputMethodService
     RimeController rimeController;
     /** True while the rime engine holds a composition for this input field. */
     private boolean pinyinComposing;
+    /** Set when Enter is pressed during a rime composition: the commit that
+     * comes back must also fire the editor action (send/go/...), like the
+     * English path does. */
+    private boolean sendOnNextCommit;
+    /** Length of the composing span we last wrote; the composing region in
+     * the field must always match it, or the app modified it externally. */
+    private int expectedComposingLen = -1;
+    /** The composing text we last wrote, to verify the field still has it. */
+    private String lastComposingText;
+    /** Set when the composition was force-reset (app consumed the text):
+     * results from keys queued before the reset {Escape} are dropped, so a
+     * stale in-flight result cannot re-pollute the field. Cleared by the
+     * {Escape}'s own result. */
+    private boolean droppingUntilEscapeResult;
 
     /** Keysym names for punctuation fed to the rime engine (from the my_rime key map). */
     private static final Map<Character, String> PUNCTUATION_KEYS;
@@ -177,7 +191,9 @@ public class SoftKeyboard extends InputMethodService
     private void updateCandidatesList(List<String> candidates) {
         currentCandidates = candidates;
         collapseExpandedCandidates();
-        setCandidatesViewShown(!candidates.isEmpty());
+        // the bar is persistent (never hidden): when empty it doubles as a
+        // keyboard-collapse button
+        setCandidatesViewShown(true);
         if (candidateStrip == null) {
             // setCandidatesViewShown(false) does not create the candidates
             // view; nothing to draw yet (next shown call recreates the strip)
@@ -196,6 +212,9 @@ public class SoftKeyboard extends InputMethodService
             collapseExpandedCandidates();
         } else if (!currentCandidates.isEmpty()) {
             expandCandidates();
+        } else {
+            // nothing to expand: the bar doubles as a "hide keyboard" button
+            requestHideSelf(0);
         }
     }
 
@@ -320,6 +339,29 @@ public class SoftKeyboard extends InputMethodService
     }
 
     @Override
+    public void onUpdateSelection(int oldSelStart, int oldSelEnd, int newSelStart,
+            int newSelEnd, int candidatesStart, int candidatesEnd) {
+        super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd,
+                candidatesStart, candidatesEnd);
+        // The app consumed part or all of the composing text (e.g. its own
+        // send button takes the message and shrinks/clears the field): the
+        // engine still holds that composition, so the next keys would append
+        // to it ("今天jt"). Detect the mismatch and drop the composition.
+        if (pinyinComposing && rimeReady()) {
+            int spanLen = candidatesStart == -1 ? 0 : candidatesEnd - candidatesStart;
+            if (spanLen != expectedComposingLen) {
+                RimeLog.w("RimeResult", "composition reset: span=" + spanLen
+                        + " expected=" + expectedComposingLen);
+                pinyinComposing = false;
+                expectedComposingLen = -1;
+                droppingUntilEscapeResult = true;
+                rimeController.processKey("{Escape}", (char) 0);
+                updateCandidatesList(new ArrayList<>());
+            }
+        }
+    }
+
+    @Override
     public void onFinishInput() {
         super.onFinishInput();
         compositionText = new StringBuilder();
@@ -360,6 +402,8 @@ public class SoftKeyboard extends InputMethodService
     public void onKey(int primaryCode, int[] keyCodes) {
         if (primaryCode == Keyboard.KEYCODE_DONE) {
             if (pinyinComposing && rimeReady()) {
+                ensureFieldMatchesEngine();
+                sendOnNextCommit = pinyinComposing;
                 rimeController.processKey("{Return}", (char) 0);
             } else {
                 commitInput();
@@ -388,6 +432,9 @@ public class SoftKeyboard extends InputMethodService
     }
 
     private void handleBackspace() {
+        if (pinyinComposing && rimeReady()) {
+            ensureFieldMatchesEngine();
+        }
         if (pinyinComposing && rimeReady()) {
             rimeController.processKey("{BackSpace}", (char) 0);
             return;
@@ -435,6 +482,7 @@ public class SoftKeyboard extends InputMethodService
         if (useRimePinyin()) {
             String key = rimeKeyFor(primaryCode);
             if (key != null) {
+                ensureFieldMatchesEngine();
                 rimeController.processKey(key, Character.toLowerCase((char) primaryCode));
                 return;
             }
@@ -503,18 +551,31 @@ public class SoftKeyboard extends InputMethodService
     public void onRimeResult(RimeWasmEngine.Result result, char passthroughChar) {
         // Stale results after switching back to English are dropped; the
         // composition was already finalized by abandonPinyinComposition().
+        if (droppingUntilEscapeResult) {
+            // stale result of a key queued before a reset {Escape}: discard
+            // it; the {Escape}'s own result (never ACCEPTED) clears the flag
+            if (result.state != RimeWasmEngine.STATE_ACCEPTED) {
+                droppingUntilEscapeResult = false;
+            }
+            RimeLog.w("RimeResult", "stale result dropped after composition reset");
+            return;
+        }
         if (inputMode != InputMode.Pinyin || getCurrentInputConnection() == null) {
             RimeLog.w("RimeResult", "result dropped (mode=" + inputMode
                     + ", ic=" + (getCurrentInputConnection() != null) + ")");
             return;
         }
+        boolean committed = false;
         switch (result.state) {
             case RimeWasmEngine.STATE_COMMITTED:
                 if (result.committed != null && !result.committed.isEmpty()) {
                     getCurrentInputConnection().commitText(result.committed, 1);
                 }
                 pinyinComposing = false;
+                expectedComposingLen = -1;
+                lastComposingText = null;
                 clearPinyinUi();
+                committed = true;
                 break;
             case RimeWasmEngine.STATE_ACCEPTED:
                 if (result.committed != null && !result.committed.isEmpty()) {
@@ -522,6 +583,8 @@ public class SoftKeyboard extends InputMethodService
                 }
                 getCurrentInputConnection().setComposingText(result.preedit(), 1);
                 pinyinComposing = !result.preedit().isEmpty();
+                expectedComposingLen = pinyinComposing ? result.preedit().length() : -1;
+                lastComposingText = pinyinComposing ? result.preedit() : null;
                 List<String> texts = new ArrayList<>(result.candidates.size());
                 for (RimeWasmEngine.Candidate c : result.candidates) {
                     texts.add(c.text);
@@ -532,6 +595,8 @@ public class SoftKeyboard extends InputMethodService
                 getCurrentInputConnection().setComposingText("", 0);
                 getCurrentInputConnection().finishComposingText();
                 pinyinComposing = false;
+                expectedComposingLen = -1;
+                lastComposingText = null;
                 clearPinyinUi();
                 break;
             default: // UNHANDLED: commit the raw character, like the my_rime editor
@@ -541,10 +606,21 @@ public class SoftKeyboard extends InputMethodService
                 }
                 break;
         }
+        if (sendOnNextCommit && committed) {
+            // Enter was pressed to commit: forward the editor action so the
+            // app actually sends/goes, like the English path's keyDownUp
+            sendOnNextCommit = false;
+            keyDownUp(KeyEvent.KEYCODE_ENTER);
+        } else if (sendOnNextCommit && !committed) {
+            sendOnNextCommit = false; // composition continues; don't send late
+        }
     }
 
     /** A candidate was tapped; rime compositions select by page index. */
     public void onCandidateSelected(int index, String candidate) {
+        if (pinyinComposing && rimeReady()) {
+            ensureFieldMatchesEngine();
+        }
         if (pinyinComposing && rimeReady()) {
             rimeController.selectCandidate(index);
         } else {
@@ -558,15 +634,45 @@ public class SoftKeyboard extends InputMethodService
         updateCandidatesList(new ArrayList<>());
     }
 
+    /**
+     * Verifies at key time that the field still shows our composing text.
+     * Apps can consume/clear the composing region silently (WeChat's send
+     * button takes the text and clears the field without any
+     * onUpdateSelection callback); the engine must not keep appending to a
+     * composition the user already sent away.
+     */
+    private void ensureFieldMatchesEngine() {
+        if (!pinyinComposing || !rimeReady()) {
+            return;
+        }
+        boolean matches = false;
+        if (lastComposingText != null && getCurrentInputConnection() != null) {
+            CharSequence before = getCurrentInputConnection()
+                    .getTextBeforeCursor(lastComposingText.length(), 0);
+            matches = lastComposingText.contentEquals(before);
+        }
+        if (!matches) {
+            RimeLog.w("RimeResult", "field lost composing text, resetting engine");
+            pinyinComposing = false;
+            expectedComposingLen = -1;
+            lastComposingText = null;
+            droppingUntilEscapeResult = true;
+            rimeController.processKey("{Escape}", (char) 0);
+            updateCandidatesList(new ArrayList<>());
+        }
+    }
+
     /** Drops any live rime composition (mode switch, input finished, ...). */
     private void abandonPinyinComposition() {
         if (pinyinComposing && rimeReady()) {
+            droppingUntilEscapeResult = true;
             rimeController.processKey("{Escape}", (char) 0);
         }
         if (pinyinComposing && getCurrentInputConnection() != null) {
             getCurrentInputConnection().finishComposingText();
         }
         pinyinComposing = false;
+        sendOnNextCommit = false;
     }
 
     public void reset() {

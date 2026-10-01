@@ -14,6 +14,7 @@ import com.google.gson.JsonParser;
 import run.endive.runtime.ImportValues;
 import run.endive.runtime.Instance;
 import run.endive.wasm.Parser;
+import run.endive.wasm.WasmModule;
 
 /**
  * The rime wasm engine on endive: one wasm instance + the emscripten host
@@ -95,9 +96,17 @@ public final class RimeWasmEngine {
         });
         List<run.endive.runtime.ImportFunction> fns = host.hostFunctions();
         ImportValues imports = ImportValues.builder().withFunctions(fns).build();
-        Instance instance = Instance.builder(Parser.parse(wasmBytes))
-                .withImportValues(imports)
-                .build();
+        WasmModule module = Parser.parse(wasmBytes);
+        Instance.Builder builder = Instance.builder(module).withImportValues(imports);
+        // the wasm was compiled to Java bytecode at build time
+        // (tools/GenerateRimeMachine.java); the interpreter fallback is only
+        // a safety net - on-device interpretation needs seconds per keypress
+        try {
+            builder.withMachineFactory(RimeCompiled::new);
+        } catch (Throwable t) {
+            RimeLog.w(TAG, "compiled machine unavailable, using interpreter", t);
+        }
+        Instance instance = builder.build();
         EmscriptenEh eh = new EmscriptenEh(instance);
         host.attach(instance, eh);
         RimeWasmEngine engine = new RimeWasmEngine(vfs, host, eh, instance);

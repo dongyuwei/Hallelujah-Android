@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+
 /**
  * Android-side lifecycle for the rime wasm engine: installs the bundled
  * assets into device-protected storage (mirroring DictionaryDb), boots the
@@ -92,8 +93,38 @@ public class RimeController {
             @Override
             public void run() {
                 RimeWasmEngine.Result result;
+                final Thread worker = Thread.currentThread();
+                final java.util.concurrent.atomic.AtomicBoolean finished =
+                        new java.util.concurrent.atomic.AtomicBoolean(false);
+                // dumps the engine thread's stack if a key takes suspiciously
+                // long - an on-device hang is otherwise invisible
+                Thread watchdog = new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        long start = System.currentTimeMillis();
+                        while (!finished.get()) {
+                            try {
+                                Thread.sleep(10000);
+                            } catch (InterruptedException e) {
+                                return;
+                            }
+                            if (finished.get()) {
+                                return;
+                            }
+                            long secs = (System.currentTimeMillis() - start) / 1000;
+                            StringBuilder sb = new StringBuilder(
+                                    "WATCHDOG key=" + key + " stuck " + secs + "s\n");
+                            StackTraceElement[] st = worker.getStackTrace();
+                            for (int i = 0; i < Math.min(50, st.length); i++) {
+                                sb.append("  at ").append(st[i]).append('\n');
+                            }
+                            RimeLog.w(TAG, sb.toString());
+                        }
+                    }
+                });
+                watchdog.setDaemon(true);
+                watchdog.start();
                 try {
-                    RimeLog.w(TAG, "processKey(" + key + ") start on " + Thread.currentThread().getName());
                     result = e.processKey(key);
                     RimeLog.w(TAG, "processKey(" + key + ") state=" + result.state);
                 } catch (Throwable ex) {
@@ -102,6 +133,9 @@ public class RimeController {
                     RimeLog.w(TAG, "processKey(" + key + ") failed", ex);
                     result = new RimeWasmEngine.Result();
                     result.state = RimeWasmEngine.STATE_UNHANDLED;
+                } finally {
+                    finished.set(true);
+                    watchdog.interrupt();
                 }
                 deliver(result, passthroughChar);
             }
@@ -182,6 +216,13 @@ public class RimeController {
             // the luna family outputs traditional hanzi by default; the app
             // targets simplified-Chinese users (opencc t2s ships in rime.data)
             e.setOption("simplification", true);
+            // ART JIT warmup: run a throwaway key so the hot engine paths
+            // are compiled before the user types (first real key otherwise
+            // costs seconds)
+            long w0 = System.currentTimeMillis();
+            e.processKey("n");
+            e.processKey("{Escape}");
+            RimeLog.w(TAG, "jit warmup in " + (System.currentTimeMillis() - w0) + " ms");
             engine = e;
             RimeLog.w(TAG, "engine ready in " + (System.currentTimeMillis() - t0) + " ms");
             final Listener l = listener;

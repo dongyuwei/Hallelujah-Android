@@ -5,7 +5,7 @@
 
 目前已经完成功能：
 - 键盘 UI 采用 [fcitx5-android](https://github.com/fcitx5-android/fcitx5-android) 风格的 **Pixel Dark** 主题（无边框 4dp 圆角按键、Material 图标、四类键色：普通/功能/空格/回车强调蓝、空格栏显示当前语言、暗色候选栏）；
-- 候选词面板为固定高度单行横向滚动条（主流输入法风格，高度不再跳动），点右侧箭头可展开为覆盖键盘的多行网格，点候选或再点箭头收起；
+- 候选词面板为固定高度单行横向滚动条（主流输入法风格，高度不再跳动），且常驻显示：空输入时右侧箭头充当收起键盘按钮，有候选时点击展开为覆盖键盘的多行网格；
 - 英语单词自动补全；
 - 英语单词拼写纠错建议：无匹配单词时，先按 Norvig 式编辑距离（增/删/换/相邻对调一字符）查 `words` 频率表给出候选，再经词典 Trie + Levenshtein DP 剪枝搜索最多 3 个编辑距离的词（覆盖双重/三重打字错误，按距离与词频排序），最后辅以 [Phonex](https://github.com/Yomguithereal/talisman) 音近词建议（与 macOS 版 hallelujahIM 相同机制）；
 - 输入拼音（全拼），显示英语候选词列表；
@@ -24,7 +24,9 @@
 - `RimeWasmEngine`：init/set_ime/process 调用序列与 JSON 协议解析；
 - `RimeController`：Android 侧资产安装（版本化、directBoot 存储适配）与主线程回调。
 
-这套宿主层是纯 Java、不依赖 Android API，`RimeEngineIntegrationTest` 在桌面 JVM 上直接驱动真实 `rime.wasm` 完成「nihao → 你好」等端到端验收。更新 [my_rime](https://github.com/LibreService/my_rime) 产物时运行 `scripts/copy-rime-assets.sh ../my-rime-dist`（会同时从 rime.js 提取数据包文件清单）并提升 `RimeController.RIME_ASSETS_VERSION`。
+这套宿主层是纯 Java、不依赖 Android API，`RimeEngineIntegrationTest` 在桌面 JVM 上直接驱动真实 `rime.wasm` 完成「nihao → 你好」等端到端验收。
+
+**性能**：endive 解释器在 ARM 真机上每键需 1.5–7.5 秒（不可用），因此 `scripts/build-rime-machine.sh` 用 endive 构建时编译器把 `rime.wasm` 预编译成 Java 字节码（`app/libs/rime-machine.jar`，随 wasm 资产更新时重新生成），运行时直接执行编译后的 Machine——真机实测引擎启动约 8 秒、热键 0.3–0.6 秒；`fdatasync` 与浏览器版 MEMFS 语义一致（空操作）避免上屏尖峰，引擎就绪后自动 JIT 预热。更新 `rime.wasm` 后需运行该脚本重新生成 jar。更新 [my_rime](https://github.com/LibreService/my_rime) 产物时运行 `scripts/copy-rime-assets.sh ../my-rime-dist`（会同时从 rime.js 提取数据包文件清单）并提升 `RimeController.RIME_ASSETS_VERSION`。
 
 词典数据与 macOS 版 [hallelujahIM](https://github.com/dongyuwei/hallelujahIM)、Windows 版 [Hallelujah-Windows](https://github.com/dongyuwei/Hallelujah-Windows) 共用同一套 SQLite 数据库：
 - `words_with_frequency_and_translation_and_ipa.sqlite3`：英语单词频率表（`words` 表），首次启动时从 assets 复制到设备保护存储后只读查询；

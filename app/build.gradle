@@ -51,6 +51,10 @@ dependencies {
     // Pure-JVM WebAssembly runtime for the rime engine (app/src/main/assets/rime).
     implementation 'run.endive:runtime:1.1.0'
     implementation 'run.endive:wasm:1.1.0'
+    // rime.wasm pre-compiled to Java bytecode (tools/GenerateRimeMachine.java):
+    // the interpreter needs 1.5-7s per keypress on Android, the compiled
+    // machine runs at native JVM speed
+    implementation files('libs/rime-machine.jar')
 
     testImplementation 'junit:junit:4.13.2'
     // Runs the real dictionary SQL against the bundled .sqlite3 assets on the JVM.

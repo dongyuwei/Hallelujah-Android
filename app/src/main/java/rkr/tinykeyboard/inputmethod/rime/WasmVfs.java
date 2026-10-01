@@ -772,16 +772,14 @@ public final class WasmVfs {
     }
 
     public long syscallFdatasync(long fd) {
+        // no-op, exactly like emscripten's MEMFS in the browser build: file
+        // data stays in the kernel page cache (survives process death); a
+        // real fsync here costs seconds of flash latency on every commit
         try {
-            Fd f = getFd(fd);
-            if (f.raf != null) {
-                f.raf.getFD().sync();
-            }
+            getFd(fd);
             return 0;
         } catch (VfsError e) {
             return Errno.ret(e.errno);
-        } catch (IOException e) {
-            return Errno.ret(Errno.EIO);
         }
     }
 

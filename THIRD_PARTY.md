@@ -13,6 +13,8 @@ and the 朙月拼音·語句流/luna_pinyin_fluency schema):
   dictionaries, prebuilt `default.yaml`, lua scripts)
 - `app/src/main/assets/rime/luna-pinyin/*` — prebuilt luna_pinyin schema
   artifacts (prism/table/reverse bins and schema yamls)
+- `app/libs/rime-machine.jar` — Java bytecode compiled from the rime.wasm
+  above by endive's build-time compiler (same AGPL-3.0 source)
 
 Source code and exact build instructions for these artifacts:
 <https://github.com/LibreService/my_rime> (AGPL-3.0). Corresponding source of
