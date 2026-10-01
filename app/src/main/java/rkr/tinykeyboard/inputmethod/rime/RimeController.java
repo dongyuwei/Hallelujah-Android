@@ -5,25 +5,31 @@ import android.content.SharedPreferences;
 import android.os.Handler;
 import android.util.Log;
 import android.os.Looper;
+import android.widget.Toast;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Android-side lifecycle for the rime wasm engine: installs the bundled
  * assets into device-protected storage (mirroring DictionaryDb), boots the
- * engine on the IME's single background thread, and delivers results back on
- * the main thread.
+ * engine on its own background thread, and delivers results back on the main
+ * thread.
  */
 public final class RimeController {
 
     private static final String TAG = "HallelujahRime";
 
-    // Bump when the bundled rime assets change, so devices re-install them.
-    private static final int RIME_ASSETS_VERSION = 1;
+    /**
+     * Bump to force a clean rime root (prebuilt data + user directory) on
+     * devices: version 2 wiped stale deployed build files and user dbs from
+     * the previous schema, which broke set_ime after an in-place upgrade.
+     */
+    private static final int RIME_ASSETS_VERSION = 2;
 
     public interface Listener {
         void onRimeResult(RimeWasmEngine.Result result, char passthroughChar);
@@ -31,17 +37,17 @@ public final class RimeController {
         void onRimeReady();
     }
 
-    private final ExecutorService executor;
+    private final ExecutorService engineExecutor;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private volatile RimeWasmEngine engine;
     private volatile boolean initFailed;
     private volatile Listener listener;
 
-    private RimeController(ExecutorService executor) {
-        this.executor = executor;
+    private RimeController(ExecutorService engineExecutor) {
+        this.engineExecutor = engineExecutor;
     }
 
-    public static RimeController create(Context context, ExecutorService executor) {
+    public static RimeController create(final Context context) {
         RimeLog.setLogger(new RimeLog.Logger() {
             @Override
             public void log(String tag, String message, Throwable error) {
@@ -52,11 +58,14 @@ public final class RimeController {
                 }
             }
         });
+        // dedicated single thread: the engine is internally single-threaded
+        // and must not queue behind the (slow) dictionary load
+        final ExecutorService executor = Executors.newSingleThreadExecutor();
         final RimeController controller = new RimeController(executor);
         executor.execute(new Runnable() {
             @Override
             public void run() {
-                controller.init(context);
+                controller.init(context.getApplicationContext());
             }
         });
         return controller;
@@ -81,15 +90,18 @@ public final class RimeController {
         if (e == null) {
             return;
         }
-        executor.execute(new Runnable() {
+        engineExecutor.execute(new Runnable() {
             @Override
             public void run() {
                 RimeWasmEngine.Result result;
                 try {
                     result = e.processKey(key);
-                } catch (RuntimeException ex) {
+                } catch (Throwable ex) {
+                    // never leave a keypress dead: surface the failure and let
+                    // the raw character through so typing still works
                     RimeLog.w(TAG, "processKey(" + key + ") failed", ex);
-                    return;
+                    result = new RimeWasmEngine.Result();
+                    result.state = RimeWasmEngine.STATE_UNHANDLED;
                 }
                 deliver(result, passthroughChar);
             }
@@ -101,12 +113,12 @@ public final class RimeController {
         if (e == null) {
             return;
         }
-        executor.execute(new Runnable() {
+        engineExecutor.execute(new Runnable() {
             @Override
             public void run() {
                 try {
                     deliver(e.selectCandidateOnCurrentPage(index), (char) 0);
-                } catch (RuntimeException ex) {
+                } catch (Throwable ex) {
                     RimeLog.w(TAG, "selectCandidate failed", ex);
                 }
             }
@@ -130,24 +142,25 @@ public final class RimeController {
         final RimeWasmEngine e = engine;
         engine = null;
         if (e != null) {
-            executor.execute(new Runnable() {
+            engineExecutor.execute(new Runnable() {
                 @Override
                 public void run() {
                     try {
                         e.close();
-                    } catch (RuntimeException ex) {
+                    } catch (Throwable ex) {
                         RimeLog.w(TAG, "close failed", ex);
                     }
                 }
             });
         }
+        engineExecutor.shutdownNow();
     }
 
     // ------------------------------------------------------------------
     // asset installation + engine boot (background thread)
     // ------------------------------------------------------------------
 
-    private void init(Context context) {
+    private void init(final Context context) {
         try {
             Context storage = context.createDeviceProtectedStorageContext();
             File root = new File(storage.getFilesDir(), "rime-root");
@@ -180,9 +193,18 @@ public final class RimeController {
                     }
                 });
             }
-        } catch (RuntimeException | IOException e) {
+        } catch (final Throwable t) {
+            // includes Errors (e.g. NoSuchMethodError on old devices): without
+            // this catch the worker thread dies silently and keys go dead
             initFailed = true;
-            RimeLog.w(TAG, "engine init failed", e);
+            RimeLog.w(TAG, "engine init failed", t);
+            mainHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(context,
+                            "拼音引擎启动失败，已回退到内置词库", Toast.LENGTH_LONG).show();
+                }
+            });
         }
     }
 
@@ -193,7 +215,11 @@ public final class RimeController {
             return;
         }
         long t0 = System.currentTimeMillis();
-        deleteRecursively(new File(root, "usr"));
+        // wipe the whole rime root: stale deployed build files and user dbs
+        // from a previous schema/version break set_ime on in-place upgrades
+        deleteRecursively(root);
+        //noinspection ResultOfMethodCallIgnored
+        root.mkdirs();
 
         String manifest = RimeDataPack.readUtf8(storage.getAssets().open("rime/rime-data-files.txt"));
         List<RimeDataPack.Entry> entries = RimeDataPack.parseManifest(manifest);

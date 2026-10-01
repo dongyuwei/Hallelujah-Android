@@ -4,7 +4,10 @@ android {
     defaultConfig {
         applicationId "rkr.tinykeyboard.inputmethod"
         compileSdk 34
-        minSdkVersion 28
+        // endive uses JDK APIs from Android API 30 (Objects.requireNonNullElse)
+        // and reads wasm via InputStream.readAllBytes (API 33, avoided: we pass
+        // a byte[]); API 30 is the effective floor for the rime engine.
+        minSdkVersion 30
         targetSdkVersion 34
         versionCode 8
         versionName "0.8"

@@ -101,7 +101,7 @@ public class SoftKeyboard extends InputMethodService
             loadDictionaryAsync();
         }
         if (rimeController == null) {
-            rimeController = RimeController.create(this, executorService);
+            rimeController = RimeController.create(this);
             rimeController.setListener(this);
         }
     }
