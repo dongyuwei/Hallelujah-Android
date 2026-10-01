@@ -5,6 +5,7 @@
 
 目前已经完成功能：
 - 键盘 UI 采用 [fcitx5-android](https://github.com/fcitx5-android/fcitx5-android) 风格的 **Pixel Dark** 主题（无边框 4dp 圆角按键、Material 图标、四类键色：普通/功能/空格/回车强调蓝、空格栏显示当前语言、暗色候选栏）；
+- 候选词面板为固定高度单行横向滚动条（主流输入法风格，高度不再跳动），点右侧箭头可展开为覆盖键盘的多行网格，点候选或再点箭头收起；
 - 英语单词自动补全；
 - 英语单词拼写纠错建议：无匹配单词时，先按 Norvig 式编辑距离（增/删/换/相邻对调一字符）查 `words` 频率表给出候选，再经词典 Trie + Levenshtein DP 剪枝搜索最多 3 个编辑距离的词（覆盖双重/三重打字错误，按距离与词频排序），最后辅以 [Phonex](https://github.com/Yomguithereal/talisman) 音近词建议（与 macOS 版 hallelujahIM 相同机制）；
 - 输入拼音（全拼），显示英语候选词列表；

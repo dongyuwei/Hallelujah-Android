@@ -1,7 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.recyclerview.widget.RecyclerView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/candidatesRecyclerView"
+<!-- Fixed-height single-row candidate strip (Gboard style): candidates
+     scroll horizontally; the chevron expands the list into a grid that
+     covers the keyboard. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
+    android:layout_height="@dimen/candidate_strip_height"
     android:background="@color/keyboard_bar_bg"
-    android:padding="4dp"/>
+    android:orientation="horizontal">
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/candidateStrip"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingLeft="4dp"
+        android:paddingRight="4dp"
+        android:scrollbars="none" />
+
+    <ImageButton
+        android:id="@+id/expandCandidates"
+        android:layout_width="44dp"
+        android:layout_height="match_parent"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/expand_candidates"
+        android:src="@drawable/ic_chevron_down" />
+</LinearLayout>

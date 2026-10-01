@@ -18,12 +18,25 @@
 */
 -->
 
-<rkr.tinykeyboard.inputmethod.PixelKeyboardView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/keyboard"
-    android:layout_alignParentBottom="true"
+<!-- The expanded-candidates grid overlays the keyboard when shown. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:background="@color/keyboard_bg"
-    android:keyTextSize="@dimen/key_text_size"
-    android:keyTextColor="@color/key_text"
-    />
+    android:layout_height="wrap_content">
+
+    <rkr.tinykeyboard.inputmethod.PixelKeyboardView
+        android:id="@+id/keyboard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/keyboard_bg"
+        android:keyTextSize="@dimen/key_text_size"
+        android:keyTextColor="@color/key_text"
+        />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/expandedCandidates"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/keyboard_bg"
+        android:padding="8dp"
+        android:visibility="gone" />
+</FrameLayout>

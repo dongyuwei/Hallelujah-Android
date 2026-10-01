@@ -29,6 +29,7 @@ import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 
 import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.gson.Gson;
@@ -49,7 +50,11 @@ public class SoftKeyboard extends InputMethodService
         implements KeyboardView.OnKeyboardActionListener, RimeController.Listener {
 
     private KeyboardView mInputView;
-    private RecyclerView candidatesRecyclerView;
+    private RecyclerView candidateStrip;
+    private RecyclerView expandedCandidates;
+    private android.widget.ImageButton expandCandidatesButton;
+    private List<String> currentCandidates = new ArrayList<>();
+    private boolean candidatesExpanded;
     private int mLastDisplayWidth;
     private boolean mCapsLock;
     private long mLastShiftTime;
@@ -148,18 +153,13 @@ public class SoftKeyboard extends InputMethodService
         LayoutInflater inflater = getLayoutInflater();
         View candidatesView = inflater.inflate(R.layout.candidates_view_layout, null);
 
-        candidatesRecyclerView = candidatesView.findViewById(R.id.candidatesRecyclerView);
-        GridLayoutManager layoutManager = new GridLayoutManager(this, CandidateAdapter.SPANS_PER_ROW);
-        layoutManager.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
-            @Override
-            public int getSpanSize(int position) {
-                RecyclerView.Adapter<?> adapter = candidatesRecyclerView.getAdapter();
-                return adapter instanceof CandidateAdapter
-                        ? ((CandidateAdapter) adapter).getSpanSize(position)
-                        : CandidateAdapter.NORMAL_SPAN;
-            }
-        });
-        candidatesRecyclerView.setLayoutManager(layoutManager);
+        candidateStrip = candidatesView.findViewById(R.id.candidateStrip);
+        LinearLayoutManager stripLayout = new LinearLayoutManager(this,
+                LinearLayoutManager.HORIZONTAL, false);
+        candidateStrip.setLayoutManager(stripLayout);
+
+        expandCandidatesButton = candidatesView.findViewById(R.id.expandCandidates);
+        expandCandidatesButton.setOnClickListener(v -> toggleExpandedCandidates());
 
         return candidatesView;
     }
@@ -174,10 +174,58 @@ public class SoftKeyboard extends InputMethodService
     }
 
     private void updateCandidatesList(List<String> candidates) {
+        currentCandidates = candidates;
+        collapseExpandedCandidates();
         setCandidatesViewShown(!candidates.isEmpty());
         CandidateSelectionHandler selectionHandler = new CandidateSelectionHandler(this);
-        CandidateAdapter adapter = new CandidateAdapter(candidates, selectionHandler);
-        candidatesRecyclerView.setAdapter(adapter);
+        candidateStrip.setAdapter(new CandidateStripAdapter(candidates, selectionHandler));
+    }
+
+    // ------------------------------------------------------------------
+    // expanded candidates overlaying the keyboard
+    // ------------------------------------------------------------------
+
+    private void toggleExpandedCandidates() {
+        if (candidatesExpanded) {
+            collapseExpandedCandidates();
+        } else if (!currentCandidates.isEmpty()) {
+            expandCandidates();
+        }
+    }
+
+    private void expandCandidates() {
+        candidatesExpanded = true;
+        expandedCandidates.setVisibility(View.VISIBLE);
+        GridLayoutManager gridLayout =
+                new GridLayoutManager(this, CandidateAdapter.SPANS_PER_ROW);
+        gridLayout.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
+            @Override
+            public int getSpanSize(int position) {
+                RecyclerView.Adapter<?> adapter = expandedCandidates.getAdapter();
+                return adapter instanceof CandidateAdapter
+                        ? ((CandidateAdapter) adapter).getSpanSize(position)
+                        : CandidateAdapter.NORMAL_SPAN;
+            }
+        });
+        expandedCandidates.setLayoutManager(gridLayout);
+        expandedCandidates.setAdapter(
+                new CandidateAdapter(currentCandidates, new CandidateSelectionHandler(this)));
+        expandCandidatesButton.setImageResource(R.drawable.ic_chevron_up);
+    }
+
+    private void collapseExpandedCandidates() {
+        if (!candidatesExpanded && expandedCandidates != null
+                && expandedCandidates.getVisibility() == View.GONE) {
+            return;
+        }
+        candidatesExpanded = false;
+        if (expandedCandidates != null) {
+            expandedCandidates.setVisibility(View.GONE);
+            expandedCandidates.setAdapter(null);
+        }
+        if (expandCandidatesButton != null) {
+            expandCandidatesButton.setImageResource(R.drawable.ic_chevron_down);
+        }
     }
 
     Context getDisplayContext() {
@@ -215,11 +263,13 @@ public class SoftKeyboard extends InputMethodService
 
     @Override
     public View onCreateInputView() {
-        mInputView = (KeyboardView) getLayoutInflater().inflate(R.layout.input, null);
+        View inputFrame = getLayoutInflater().inflate(R.layout.input, null);
+        mInputView = inputFrame.findViewById(R.id.keyboard);
         mInputView.setOnKeyboardActionListener(this);
         mInputView.setPreviewEnabled(false);
+        expandedCandidates = inputFrame.findViewById(R.id.expandedCandidates);
         setLatinKeyboard(mQwertyKeyboard);
-        return mInputView;
+        return inputFrame;
     }
 
     private void setLatinKeyboard(LatinKeyboard nextKeyboard) {

@@ -28,4 +28,5 @@
     <dimen name="key_bg_radius">4dp</dimen>
     <dimen name="key_bg_margin_h">3dp</dimen>
     <dimen name="key_bg_margin_v">3.5dp</dimen>
+    <dimen name="candidate_strip_height">48dp</dimen>
 </resources>
